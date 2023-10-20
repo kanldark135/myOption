@@ -6,7 +6,9 @@ strat_backtest.py
 # dist_from_atm 을 해당 시점 델타 기준으로 알아서 설정되게 (델타 20/15 -> 행사가 알아서 선정)
 #---> 위에 세개 전부 혼용 가능하도록 (
 # (진입시 "0.04%에 긋고 / +7.5 행사 위에다가 매도 후 / 델타 0.05짜리로 외가헤지" 와 같은 전략 구현)
+# generate_trade 함수에서 profit taking/stop loss action 구현
 
+# 해야할것
 
 # 내가옵션 일정 수준 이상 내가격 가면 거래안되서 0원으로 가격 비는거 처리
 # 1) 일일히 bsm 으로 계산하기 -> 볼이 없어서 정확한 계산 안 됨 / interpolation 가능하나 굳이...?
@@ -14,6 +16,6 @@ strat_backtest.py
 # 3) 아예 냅두기
 
 # number_of_contracts vol-based dynamic sizing 구현
-# generate_trade 함수에서 profit taking/stop loss action 구현
+
 # 콜이랑 풋이랑 동시에 할수 있게 > 스트랭글 등등
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
