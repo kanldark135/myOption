@@ -270,9 +270,9 @@ def get_calendar(df_front, df_back):
 def get_closest_strike(close_price):
 
     divided = divmod(close_price, 2.5)
-    if divided[1] > 0.5:
-        res = divided[0] * 2.5
+    if divided[1] > 1.25:
+        res = (divided[0] + 1) * 2.5
     else:
-        res = (divided[0] + 1) * 2.5 
+        res = divided[0] * 2.5 
 
     return res

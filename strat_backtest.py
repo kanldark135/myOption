@@ -58,7 +58,7 @@ import get_entry_date
 k200 = pd.read_pickle("./data_pickle/k200.pkl")
 ta_based_entry = get_entry_date.contrarian(k200)
 stoch = ta_based_entry.stoch_rebound(k = 5, d = 3, smooth_d = 3)
-entry_dates_stoch = stoch.loc[stoch['signal_stoch'] == 1].index
+entry_dates_stoch = stoch.loc[stoch['signal'] == 1].index
 
 # 2. 월요일마다 진입 (월 = 0 ~ 일 = 6)
 entry_dates_monday = (monthly.index.unique()[monthly.index.unique().weekday == 0])

@@ -1,12 +1,11 @@
-Things I need
+ㅇlibraries
 
 conda included libraries
 openbb
-
-pandas_ta : dataframe 이 ohlc 꼴로만 되있으면 df.ta.기술지표(파라메터) 형식으로 굳이 데이터 지정 안 해줘도 알아서 해줌
+pandas_ta : dataframe 이 ohlc 꼴로만 되있으면 알아서 해줌
 TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 / 직접 쓰기 불편함
-
 FinanceDataReader
+
 
 ㅇentry_strat
 해당 모듈의 목표 : 진입 / 청산의 시점 (return index of each signals) 의 array 도출하는 것
@@ -23,6 +22,7 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 
 ㅁ당장 해야할것
 #. 기술적 지표 기반 날짜 도출하기
+#. filterout 조건 날짜 도출해서 이건 빼기 : 볼커브 invert / vix 80% 이상 /...?
 
 ㅁ추후 과제
 # 
@@ -40,18 +40,25 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 # 내가옵션 일정 수준 이상 내가격 가면 거래안되서 0원으로 가격 비는거 처리
 # V 일일히 bsm 으로 계산하기 -> 없는 IV interpolate + extrapolate 은 그냥 fillna 로 제일 마지막 iv랑 동일
 # 진입 /청산시점의 변수화 : 현재 월요일 투자 고정 -> 특정일 list 별로 진입하는걸로 수정 (각종 TA 등등 별도로 날짜 추출)
+# 특정 전략의 손익 하나하나 모듈-> 손익 합산하는 모듈  -> 합산된 손익 기반 익손절 적용하는 모듈
+# 특정 전략 내에서도 leg 별로 익절 손절 따로 구현될수 있게 (래더스프레드 외가익절 / 크레딧스프레드 따로 두기 등)
+=> 이건 그냥 전략을 두개로 쪼개서 접근
+(111의 경우 크레딧 스프레드로 백테스트 한번 + 네이키드 풋으로 백테스트 한번 해서 손익 합산)
 
 ㅁ 당장 해야할것
+# 매매 통계 내기
+1) 총 매매 횟수
+2) 매매 승률
+3) 평균 이익
+4) 평균 손실
+5) 손익비 (금액/금액)
+6) 샤프
 
-# 특정 전략의 손익 하나하나 모듈화 -> 손익 합산 -> 합산된 손익 기반 익손절로 나가게끔 바꾸기
-# 한술 더 떠서 특정 전략 내에서도 leg 별로 익절 손절 따로 구현될수 있게 (래더스프레드 외가익절 / 크레딧스프레드 따로 두기 등)
-
+# number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing
 
 ㅁ 추후 과제
 # 캘린더라이즈
-# number_of_contracts 도 sizing 구현
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
-
 
 
 ㅇpreprocessing.py
@@ -59,7 +66,6 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 ㅁ 당장 해야할것
 
 ㅁ완료
-
 # interp 가격 -> price nan/0에 밀어넣기 + dte = 1일때는 내재가치로 바꾸기 / 0.01 이하 가격 0.01로 통일시키기
 # db에 테이블 밀어넣기 + 복수 테이블로 데이터들 파편화하는 구조 생각해보기
 
