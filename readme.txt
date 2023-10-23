@@ -8,6 +8,25 @@ TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 
 
 FinanceDataReader
 
+ㅇentry_strat
+해당 모듈의 목표 : 진입 / 청산의 시점 (return index of each signals) 의 array 도출하는 것
+
+psar
+
+The SAR dots beneath the current market price point to an uptrend;
+The SAR dots above the market price point to a downtrend;
+Enter a position when the price penetrates the SAR – buy if the price crosses above the SAR and sell if the price crosses below the SAR;
+You stop and reverse your position when the price crosses the SAR again.
+You can aim to improve your Parabolic SAR strategy by using other indicators to aid your decision-making. For example, it can be useful to use a different trend indicator, such as the ADX, to establish that you are actually in a trending market, as opposed to a sideways moving market. It's important to note that the Parabolic SAR is not designed to work in a sideways market.
+
+ㅁ완료
+
+ㅁ당장 해야할것
+#. 기술적 지표 기반 날짜 도출하기
+
+ㅁ추후 과제
+# 
+#. ?? (머신러닝 기반?)
 
 
 ㅇstrat_backtest.py
@@ -20,23 +39,30 @@ FinanceDataReader
 # (진입시 "0.04%에 긋고 / +7.5 행사 위에다가 매도 후 / 델타 0.05짜리로 외가헤지" 와 같은 전략 구현)
 # 내가옵션 일정 수준 이상 내가격 가면 거래안되서 0원으로 가격 비는거 처리
 # V 일일히 bsm 으로 계산하기 -> 없는 IV interpolate + extrapolate 은 그냥 fillna 로 제일 마지막 iv랑 동일
+# 진입 /청산시점의 변수화 : 현재 월요일 투자 고정 -> 특정일 list 별로 진입하는걸로 수정 (각종 TA 등등 별도로 날짜 추출)
 
-ㅁ해야할것
-# 현재 월요일 투자 고정 -> 특정일 list 별로 진입하는걸로 수정 (각종 TA 등등 별도로 날짜 추출)
+ㅁ 당장 해야할것
 
-# 콜풋 따로 계산할게 아니라 수익률 합해서 profit taking / stop loss 한번에 구현
-# leg 별로 익절 손절 따로 구현될수 있게 (래더스프레드 외가익절 / 크레딧스프레드 따로 두기 등)
-# 캘린더 매매
-# number_of_contracts vol-based dynamic sizing 구현
+# 특정 전략의 손익 하나하나 모듈화 -> 손익 합산 -> 합산된 손익 기반 익손절로 나가게끔 바꾸기
+# 한술 더 떠서 특정 전략 내에서도 leg 별로 익절 손절 따로 구현될수 있게 (래더스프레드 외가익절 / 크레딧스프레드 따로 두기 등)
+
+
+ㅁ 추후 과제
+# 캘린더라이즈
+# number_of_contracts 도 sizing 구현
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
+
 
 
 ㅇpreprocessing.py
 
+ㅁ 당장 해야할것
+
 ㅁ완료
+
 # interp 가격 -> price nan/0에 밀어넣기 + dte = 1일때는 내재가치로 바꾸기 / 0.01 이하 가격 0.01로 통일시키기
 # db에 테이블 밀어넣기 + 복수 테이블로 데이터들 파편화하는 구조 생각해보기
 
 ㅁ해야할것
-
+데이터 포맷 바뀌게되는 상황 + 신규 데이터 들어오는거 로데이터 어떻게 업데이트할지 재차 고민 (preprocessing 모듈의 1/2번 단락들)
 

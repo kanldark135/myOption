@@ -26,7 +26,7 @@ import sql
 
 #%% 데이터 불러오기 pkl
 
-monthly = pd.read_pickle("./monthly.pkl")
+monthly = pd.read_pickle("./data_pickle/df_monthly.pkl")
 call_df_raw = monthly.loc[monthly['cp'] == 'C']
 put_df_raw = monthly.loc[monthly['cp'] == 'P']
 
@@ -50,33 +50,46 @@ def get_pivot_chain_within_group(raw_df, values = ['adj_price', 'iv_interp', 'de
 
     return res
 
-# 옵션 pivot_table 에서 특정 trade 의 수익 구하는 함수!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# df : pivot table (index = 날짜 / columns = 행사가 / values = 가격)
-# trade_dict = {'entry_date' : , 'k' : , 'number' : } 꼴
+# myentrydate / exitdate : 온갖 방법으로 진입 /청산시점 구할 것이기 때문에 어떤 함수로 방법론을 특정할 수가 없음
+# 어디선가 진입 /청산 df 구해와서 그 datetimeIndex 만 가져온다고 치고 거기서부터 시작하기
 
-def generate_single_trade(df,
-                   dist_from_atm : list,
-                   number_of_contracts : list,
-                   preferred_weekday = 4,
-                   dte_range = [35, 70]
+#1. 스토캐스틱 과열 기준 진입일
+import get_entry_date
+k200 = pd.read_pickle("./data_pickle/k200.pkl")
+ta_based_entry = get_entry_date.contrarian(k200)
+stoch = ta_based_entry.stoch_rebound(k = 5, d = 3, smooth_d = 3)
+entry_dates_stoch = stoch.loc[stoch['signal_stoch'] == 1].index
+
+# 2. 월요일마다 진입 (월 = 0 ~ 일 = 6)
+entry_dates_monday = (monthly.index.unique()[monthly.index.unique().weekday == 0])
+
+trade_spec = 
+
+def create_trade_entries_one_expiry(df,
+                    entry_dates,
+                    dist_from_atm : list,
+                    number_of_contracts : list,
+                    dte_range = [35, 70]
                    ):
-
     '''
     return trade_dict with keys
     entry_date : one entry date in datetime format
     strikes : list of multiple ks
     number_of_contracts : trade size of each options in the same order as k
     '''
+    def get_entry_dates(df, entry_dates):
+        res = df.loc[df.index.isin(entry_dates)].index
+        return res
+    
+    entry_dates = get_entry_dates(df = df, entry_dates = entry_dates)
 
-    # 0 = 월요일 ~ 6 = 일요일 on datetime.weekday()
+    # 1) 해당 subgroup 내에서 포지션 잡는 로우만 식별
+    res = df.loc[entry_dates]
 
-    # 1)월요일 투자
-    res = df.loc[filter(lambda x: datetime.weekday(x) == preferred_weekday, df.index)]
-
-    # 2) 35~70 dte만 신규포지션
+    # 2) 특정 만기 이내 dte만 사용하여 진입
     res = res.loc[res['dte'].isin(range(dte_range[0], dte_range[1]))]
 
-    # 3) strike price selection (if stated in relative distance then identify precise values)
+    # 3) 전략 구현 (= 각 옵션들 행사가 선택))
     
     '''
     # 'number' : dist_from_atm 을 atm 대비 벌어진 값으로 설정되게
@@ -113,7 +126,7 @@ def generate_single_trade(df,
     # 4) dynamic sizing
     return res['trade_dict'].tolist()
 
-def get_single_trade_res(df, trade_dict: dict, is_complex_strat = False, profit_take = 0.5, stop_loss = 2):
+def get_trade_result(df, trade_dict: dict, is_complex_strat = False, profit_take = 0.5, stop_loss = 2):
 
     df = df['adj_price'] # dataframe 전체에서 가격 부분만 사용
 
@@ -181,10 +194,10 @@ def get_agg_return(df, dist_from_atm, number_of_contracts, preferred_weekday = 0
 
     res_list = []
 
-    trade_list = generate_single_trade(df, dist_from_atm = dist_from_atm, number_of_contracts = number_of_contracts, preferred_weekday = preferred_weekday, dte_range = dte_range)
+    trade_list = create_trade_entries_one_expiry(df, dist_from_atm = dist_from_atm, number_of_contracts = number_of_contracts, preferred_weekday = preferred_weekday, dte_range = dte_range)
 
     for trade in trade_list:
-        trade_res = get_single_trade_res(df, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['daily_ret']
+        trade_res = get_trade_result(df, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['daily_ret']
         res_list.append(trade_res)
 
     daily_ret = pd.concat(res_list, ignore_index = True, axis = 1).sum(axis = 1)
@@ -267,26 +280,26 @@ if __name__ == "__main__":
 
     sample = grouped_call.get_group('2010-04-08')
     cdf = sample.pipe(get_pivot_chain_within_group)
-    ctrade_list = generate_single_trade(cdf, call_dist_from_atm, call_number_of_contracts)
+    ctrade_list = create_trade_entries_one_expiry(cdf, call_dist_from_atm, call_number_of_contracts)
     cret = get_agg_return(cdf, call_dist_from_atm, call_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
 
     cres_n = []
 
     for trade in ctrade_list:
-        cres = pd.concat([get_single_trade_res(cdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(cdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
+        cres = pd.concat([get_trade_result(cdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_trade_result(cdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
         cres_n.append(cres)
 
     cres = get_final_result(sample, call_dist_from_atm, call_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
 
     sample_2 = grouped_put.get_group('2010-04-08')
     pdf = sample_2.pipe(get_pivot_chain_within_group)
-    ptrade_list = generate_single_trade(pdf, put_dist_from_atm, put_number_of_contracts)
+    ptrade_list = create_trade_entries_one_expiry(pdf, put_dist_from_atm, put_number_of_contracts)
     pret = get_agg_return(pdf, put_dist_from_atm, put_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
 
     pres_n = []
 
     for trade in ptrade_list:
-        pres = pd.concat([get_single_trade_res(pdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(pdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
+        pres = pd.concat([get_trade_result(pdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_trade_result(pdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
         pres_n.append(pres)
 
     pres = get_final_result(sample_2, put_dist_from_atm, put_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
