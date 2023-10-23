@@ -10,72 +10,72 @@ import scipy.stats as scistat
 import scipy.optimize as sciop
 
     
-def call_p(s, k, v, t, r):
+def call_p(s, k, v, t, r, q = 0):
     
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         N_d1 = scistat.norm.cdf(d1)
         d2 = d1 - v * np.sqrt(t)
         N_d2 = scistat.norm.cdf(d2)
         
-        price = s * N_d1 - k * np.exp(-r * t) * N_d2
+        price = s *np.exp(-q * t) * N_d1 - k * np.exp(-r * t) * N_d2
     
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             price = np.nan
         else:
             raise e
         
     return price
 
-def put_p(s, k, v, t, r):
+def put_p(s, k, v, t, r, q = 0):
 
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         N_d1 = scistat.norm.cdf(d1)
         d2 = d1 - v * np.sqrt(t)
         N_d2 = scistat.norm.cdf(d2)
         
-        price = k * np.exp(-r * t) * (1 - N_d2) - s * (1 - N_d1)
+        price = k * np.exp(-r * t) * (1 - N_d2) - s * np.exp(-q * t) * (1 - N_d1)
 
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             price = np.nan
         else:
             raise e
         
     return price
 
-def call_delta(s, k, v, t, r):
+def call_delta(s, k, v, t, r, q = 0):
     
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         N_d1 = scistat.norm.cdf(d1)
 
         delta = N_d1
 
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             delta = np.nan
         else:
             raise e
         
     return delta
     
-def put_delta(s, k, v, t, r):
+def put_delta(s, k, v, t, r, q = 0):
 
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         N_d1 = scistat.norm.cdf(d1)
 
         delta = - (1 - N_d1)
 
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             delta = np.nan
         else:
             raise e
@@ -83,70 +83,70 @@ def put_delta(s, k, v, t, r):
     return delta
 
 
-def gamma(s, k, v, t, r):
+def gamma(s, k, v, t, r, q = 0):
     
     try: 
 
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         n_d1 = scistat.norm.pdf(d1)
         
-        gamma = n_d1 / (s * v * np.sqrt(t))
+        gamma = n_d1 * np.exp(-q * t) / (s * v * np.sqrt(t))
 
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             gamma = np.nan
         else:
             raise e
         
     return gamma
 
-def vega(s, k, v, t, r):
+def vega(s, k, v, t, r, q = 0):
 
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         n_d1 = scistat.norm.pdf(d1)
         
-        vega = (s * np.sqrt(t) * n_d1)/100
+        vega = (s * np.exp(-q * t) * np.sqrt(t) * n_d1)/100
 
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             vega = np.nan
         else:
             raise e
     
     return vega
     
-def call_theta(s, k, v, t, r):
+def call_theta(s, k, v, t, r, q = 0):
 
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         d2 = d1 - v * np.sqrt(t)
         
-        theta = - (s * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) - (r * k * np.exp(-r * t) * scistat.norm.cdf(d2))
+        theta = - (s * np.exp(-q * t) * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) - (r * k * np.exp(-r * t) * scistat.norm.cdf(d2)) + (q * s * np.exp(-q * t) * scistat.norm.cdf(d1))
         call_theta = theta/365
     
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             call_theta = np.nan
         else:
             raise e
 
     return call_theta
 
-def put_theta(s, k, v, t, r):
+def put_theta(s, k, v, t, r, q = 0):
 
     try:
     
-        d1 = (np.log(s / k) + (r + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
+        d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         d2 = d1 - v * np.sqrt(t)
         
-        theta = - (s * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) + (r * k * np.exp(-r * t) * scistat.norm.cdf(-d2))
+        theta = - (s * np.exp(-q * t) * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) + (r * k * np.exp(-r * t) * scistat.norm.cdf(-d2)) - (q * s * np.exp(-q * t) * scistat.norm.cdf(-d1))
         put_theta = theta/365
 
     except TypeError as e:
-        if any(np.isnan([s, k, v, t, r])):
+        if any(np.isnan([s, k, v, t, r, q])):
             put_theta = np.nan
         else:
             raise e
@@ -156,26 +156,26 @@ def put_theta(s, k, v, t, r):
     
 ## 가격 = spot 이 주어졌을때, 개별옵션의 IV 역산하여 도출, minimizing Least Square 로 접근하였음
 
-def derive_iv(s, k, v, t, r, spot, callput = 'call'):
+def derive_iv(s, k, v, t, r, spot, q = 0, callput = 'call'):
     
     iv = 0
     
     if callput == 'call':
         
-        def diff_func_LS(v, s, k, t, r, spot):
-            result = np.sum(np.power(call_p(s, k, v, t, r) - spot, 2))
+        def diff_func_LS(v, s, k, t, r, spot, q):
+            result = np.sum(np.power(call_p(s, k, v, t, r, q) - spot, 2))
             return result
         
-        optimize = sciop.minimize(diff_func_LS, x0 = 0.1, args = (s, k, t, r, spot))
+        optimize = sciop.minimize(diff_func_LS, x0 = 0.1, args = (s, k, t, r, spot, q))
         iv = optimize.x
         
     else: 
         
-        def diff_func_LS(v, s, k, t, r, spot):
-            result = np.sum(np.power(put_p(s, k, v, t, r) - spot, 2))
+        def diff_func_LS(v, s, k, t, r, spot, q):
+            result = np.sum(np.power(put_p(s, k, v, t, r, q) - spot, 2))
             return result
         
-        optimize = sciop.minimize(diff_func_LS, x0 = 0.1, args = (s, k, t, r, spot))
+        optimize = sciop.minimize(diff_func_LS, x0 = 0.1, args = (s, k, t, r, spot, q))
         iv = optimize.x
         
     return iv

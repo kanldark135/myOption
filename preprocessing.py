@@ -135,15 +135,44 @@ final.to_pickle("./data_pickle/weekly.pkl")
 
 import pandas as pd
 import numpy as np
-import option_calc
+import option_calc as calc
+
+# # pandas does not provide explicit extrapolation with its built-in df.interpolate. hence make custom
+# # interpolation /extrapolation cubic spline function using scipy.interpolate library.
+
+# from scipy.interpolate import CubicSpline
+
+# def custom_extrapolation(df):
+#     bool_not_na = df['iv'].notna()
+#     valid_index = df.loc[bool_not_na, 'strike'].values
+#     valid_value = df.loc[bool_not_na, 'iv'].values.astype('float64')
+
+#     interpolator = CubicSpline(valid_index, valid_value)
+#     res = interpolator(df['strike'])
+
+#     df['iv_interp'] = res
+
+#     return df
+
+
+# vkospi = pd.read_excel("./종합.xlsx", sheet_name = 'data', usecols = "AR:AS", index_col = 0).dropna().rename(columns = {'종가.2': 'vkospi'})
+# base_rate = pd.read_excel("./base_rate.xlsx", sheet_name = "Sheet1", index_col = 0).dropna()
+# k200 = pd.read_excel("C:/Users/kanld/Desktop/k200.xlsx", sheet_name = 'sheet1', index_col = 0).dropna()
+
+# vkospi.to_pickle("./vkospi.pkl")
+# base_rate.to_pickle("./base_rate.pkl")
+# k200.to_pickle("./k200.pkl")
 
 df_monthly = pd.read_pickle("./data_pickle/monthly.pkl")
 df_weekly = pd.read_pickle("./data_pickle/weekly.pkl")
 df_kospi = pd.read_pickle("./data_pickle/k200.pkl")
+df_vkospi = pd.read_pickle("./data_pickle/vkospi.pkl")
+df_base_rate = pd.read_pickle("./data_pickle/base_rate.pkl")
 
-def preprocessing(df_option, df_kospi):
 
-    # 현재주가에 Closest 한 행사가 찾기 함수
+def create_table(df_raw, df_kospi, df_vkospi, df_base_rate):
+
+# 1, 2, 3, 4. 주변값들 : 당일 등가격 / 코스피 / vkospi / 기준금리 (계산용) 같다 붙이기
 
     def find_closest_strike(x, interval = 2.5):
         divided = divmod(x, interval)
@@ -153,122 +182,138 @@ def preprocessing(df_option, df_kospi):
             result = divided[0] * interval
         return result
 
+    df_atm = df_kospi['close'].apply(find_closest_strike).rename('atm')
+    df_m_1 = df_raw.merge(df_atm, how = 'left', left_index = True, right_index = True)
+    df_m_2 = df_m_1.merge(df_kospi, how = 'left', left_index = True, right_index = True)
+    df_m_3 = df_m_2.merge(df_vkospi, how = 'left', left_index = True, right_index = True)
+    df_m_4 = df_m_3.merge(df_base_rate, how = 'left', left_index = True, right_index = True)
 
-    find_closest_strike = np.vectorize(find_closest_strike)
+#4. 등가격 대비 괴리도 (콜풋 모두 외가격을 양수로 치환)
 
-    # 일단 변동성이랑 종가랑 같은 테이블에 있는거 => 테이블 둘로 쪼갰다가 다시 merge 하는방법밖에 없어보임
-    # (unstacking 은 안되고, pivot으로 하면 멀티컬럼 생성되버림)
+    def moneyness(cp, strike, atm):
+        if cp == "C":
+            res = strike - atm
+        elif cp == "P":
+            res = atm - strike
+        return res
 
-    # 콜 풋도 만기 당일 내재가치 처리해줄려면 다시 빼서 각각 계산해줘야하는데 
-    # 테이블 전체에 iterrow:if row['cp] == 'call' or 'put' 으로 돌리는것보다 그냥 쪼개서 처리하는게 효율적이라는 생각    
-    # 결국 콜_p/ 콜_v / 풋_p/ 풋_v 로 각각 계산한다음 콜이랑 풋 따로 테이블 빼서 쓰는 식으로 하기로
+    df_m_4['moneyness'] = list(map(moneyness, df_m_4['cp'], df_m_4['strike'], df_m_4['atm']))
 
-    # 1) df_kospi join
+#5~6. 내재변동성 컬럼으로 빼서 로우 축소
 
-    df_append = df_kospi.assign(atm = find_closest_strike(df_kospi['close']))
+    price = df_m_4[df_m_4['title'] == '종가']
+    df_m_5 = df_m_4[df_m_4['title'] == '내재변동성']
 
-    # 2) ATM 대비 Moneyness 표기
+    df_m_6 = df_m_5.merge(price['value'], how = 'left', left_on = [df_m_5.index, df_m_5.cp, df_m_5.expiry, df_m_5.strike], right_on = [price.index, price.cp, price.expiry, price.strike])
 
-    df_c = df_option[df_option['cp']== "C"]
-    df_c = df_c.merge(df_append, how = 'left', left_index = True, right_index = True)
-    df_c = df_c.assign(moneyness = df_c.strike - df_c.atm)
+    df_m_6 = df_m_6.rename(columns = {'key_0' : 'date', 'value_x' : 'iv', 'value_y' : 'price'})
+    df_m_6.drop(columns = ['key_1', 'key_2', 'key_3'], inplace = True)
+    df_m_6 = df_m_6.set_index('date')
+    df_m_6 = df_m_6.drop(columns = ['title'])
+    df_m_6['expiry'] = pd.to_datetime(df_m_6['expiry'], errors = 'coerce')
+    
+# 7 IV 보간 및 보간된 IV 기반의 model_price 산정해서 nan 또는 맥락없는 0 값에 껴넣기
+    # 12월 배당락 걸쳐있는 차년도 만기 옵션들의 경우 
+    # 매년마다 예상배당수익률 계산하는거 개 낭비같아서 그냥 0.03으로 픽스시킴
 
-    df_p = df_option[df_option['cp']== "P"]
-    df_p = df_p.merge(df_append, how = 'left', left_index = True, right_index = True)
-    df_p = df_p.assign(moneyness = df_p.atm - df_p.strike)
+    grouped = df_m_6.groupby(by = ['expiry', 'date', 'cp'])
 
-    # 3) 매일마다 존재하는 옵션 근/차월물 식별하여 레이블링
-    ## 여기 문제 있는게, 아예 상장조차 되지 않은 물건들도 raw data 의 형식으로 인해 마치 있는것처럼 처리되어있음
-    # 해서 특히 weekly 의 경우 당연히 없어야 할 back / backback 월물이 있는것처럼 되어있는데 일단 NA값으로만 처리
+    # interpolate iv
 
+    def iv_interpolation(df):
+        res = df['iv']\
+        .interpolate(method = 'spline', order = 2)\
+        .fillna(method = 'bfill')\
+        .fillna(method = 'ffill')
+        df['iv_interp'] = res
+        return df
 
-    def grouping(df):
+    df = grouped.apply(iv_interpolation)
 
-        grouped = df.groupby(by = df.index)
-        keys = grouped.groups.keys()
-        dummy_df = pd.DataFrame()
+    # interpolate price computed from interpolated iv
 
-        def cycle_indexing(part_df):
-            index_table = part_df[['expiry']].drop_duplicates().sort_values(by = ['expiry'], axis = 0)
-            index_table['cycle'] = np.arange(len(index_table))
-            index_table = index_table.set_index('expiry')
+    df['div_yield'] = 0.03 * (~(df.index.year == df['expiry'].dt.year))
+    call_mask = df['cp'] == 'C'
+    df['price_interp'] = np.where(call_mask, calc.call_p(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield), calc.put_p(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield))
 
-            res = part_df.merge(index_table['cycle'], how = 'left', left_on = part_df['expiry'], right_index = True)
-            
-            return res
+    ## interp 가격 -> 
+    # price nan/0에 interp 밀어넣기 / 0.01 이하 가격 0.01로 통일시키기 / dte = 1일때는 아예 내재가치로 바꾸기
         
-        for key in keys:
-            part_df = grouped.get_group(key)
-            res = cycle_indexing(part_df)
-            dummy_df = pd.concat([dummy_df, res], ignore_index = False)
-
-        return dummy_df
-
-    df_c = df_c.pipe(grouping)
-    df_p = df_p.pipe(grouping)
-
-    # 4) 최종적으로 콜가격/콜변동성/풋가격/풋변동성 4개의 dataframe 생성
-
-    df_cv = df_c[df_c['title'] == '내재변동성']
-    df_cp = df_c[df_c['title'] == '종가']
-
-    # 만기당일은 종가 -> 행사가 Payoff 로 교체
-    df_cp['value'] = df_cp['value'].mask(df_cp.index == df_cp['expiry'], np.maximum(df_cp['close'] - df_cp['strike'], 0))
-
-    # 풋
-    df_pv = df_p[df_p['title'] == '내재변동성']
-    df_pp = df_p[df_p['title'] == '종가']
+    df['adj_price'] = df['price'].mask((df['price'].isna())|(df['price'].eq(0)), df['price_interp'])
+    df['adj_price'] = df['adj_price'].mask(df['adj_price'].lt(0.01), 0.01)
+    df['adj_price'] = df['adj_price'].mask((df['dte'] == 1) & (df['cp'] == "C"), np.maximum(df['close'] - df['strike'], 0))
+    df['adj_price'] = df['adj_price'].mask((df['dte'] == 1) & (df['cp'] == "P"), np.maximum(df['strike'] - df['close'], 0))
     
-    df_pp['value'] = df_pp['value'].mask(df_pp.index == df_pp['expiry'], np.maximum(df_pp['strike'] - df_pp['close'], 0))
+    # greeks computed from interpolated iv
 
-    # 다시 같이 합치기 
+    df['delta'] = np.where(call_mask, calc.call_delta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield), calc.put_delta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield))
+    df['gamma'] = calc.gamma(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield)
+    df['theta'] = np.where(call_mask, calc.call_theta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield), calc.put_theta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield))
+    df['vega'] = calc.vega(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield)
 
-    df_put = df_pv.merge(df_pp['value'], how = 'left', left_on = [df_pv.index, df_pv.cycle, df_pv.strike, df_pv.dte], right_on = [df_pp.index, df_pp.cycle, df_pp.strike, df_pp.dte]).set_index('key_0')
-    df_call = df_cv.merge(df_cp['value'], how = 'left', left_on = [df_cv.index, df_cv.cycle, df_cv.strike, df_cv.dte], right_on = [df_cp.index, df_cp.cycle, df_cp.strike, df_cp.dte]).set_index('key_0')
-    df_put.drop(['key_1', 'key_2', 'key_3'], axis = 1, inplace = True)
-    df_call.drop(['key_1', 'key_2', 'key_3'], axis = 1, inplace = True)
+    return df
 
-    df_put.rename(columns = {'value_x' : "iv", 'value_y' : 'price'}, inplace = True)
-    df_call.rename(columns = {'value_x' : "iv", 'value_y' : 'price'}, inplace = True)
+monthly = create_table(df_monthly, df_kospi, df_vkospi, df_base_rate)
+weekly = create_table(df_weekly, df_kospi, df_vkospi, df_base_rate)
+weekly = weekly.loc[weekly['dte'] < 9]
+monthly['id'] = monthly['cp'] + monthly['expiry'].dt.strftime('%Y%m').astype('str') + monthly['strike'].astype('str')
+weekly['id'] = weekly['cp'] + weekly['expiry'].dt.strftime('%Y%m%d').astype('str') + weekly['strike'].astype('str')
 
-    # 기준금리 concat
 
-    base_rate = pd.read_pickle("./data_pickle/base_rate.pkl")
+#%% pkl
 
-    df_put = df_put.merge(base_rate, how = 'left', left_index = True, right_index = True)
-    df_call = df_call.merge(base_rate, how = 'left', left_index = True, right_index = True)
+monthly.to_pickle("./data_pickle/df_monthly.pkl")
+weekly.to_pickle("./data_pickle/df_weekly.pkl")
 
-    # 그릭 : 그릭은 크게 다르지 않은 숫자로 판단
-    # 배당락 미반영 : 해당 만기에 배당락있어도 배당수익률 미반영한숫자임 (이거까지 하기에는...)
-    # 그럼에도 IV기준 실효 그릭을 구할수 있는데가 없어서 내가 직접 계산... (거래소 데이터는 HV 기준임)
 
-    df_call['iv'] = df_call['iv'].fillna(0)
-    df_put['iv'] = df_put['iv'].fillna(0)
+ # %% sql
 
-    df_put = df_put.assign(
-        delta = option_calc.put_delta(df_put.close, df_put.strike, df_put.iv, df_put.dte/365, df_put.rate/100),
-        gamma = option_calc.gamma(df_put.close, df_put.strike, df_put.iv, df_put.dte/365, df_put.rate/100),
-        theta = option_calc.put_theta(df_put.close, df_put.strike, df_put.iv, df_put.dte/365, df_put.rate/100),
-        vega = option_calc.vega(df_put.close, df_put.strike, df_put.iv, df_put.dte/365, df_put.rate/100) 
-    )
-    
-    df_call = df_call.assign(
-        delta = option_calc.call_delta(df_call.close, df_call.strike, df_call.iv, df_call.dte/365, df_call.rate/100),
-        gamma = option_calc.gamma(df_call.close, df_call.strike, df_call.iv, df_call.dte/365, df_call.rate/100),
-        theta = option_calc.call_theta(df_call.close, df_call.strike, df_call.iv, df_call.dte/365, df_call.rate/100),
-        vega = option_calc.vega(df_call.close, df_call.strike, df_call.iv, df_call.dte/365, df_call.rate/100) 
-    )
+import sqlite3
 
-    return df_call, df_put
+local_file_path = "./option_k200.db"
+
+def db_connect(local_file_path):
+        
+    conn = sqlite3.connect(local_file_path)
+    return conn
+
+def perform_sql(conn, sql):
+    cur = conn.cursor()
+    cur.execute(sql)
+
+create_table = '''CREATE TABLE IF NOT EXISTS weekly_total (
+                date DATE,
+                cp TEXT,
+                expiry DATE,
+                iv REAL,
+                dte INT,
+                atm REAL,
+                open REAL,
+                high REAL,
+                low REAL,
+                close REAL,
+                vkospi REAL,
+                rate REAL,
+                moneyness REAL,
+                price REAL,
+                iv_interp REAL,
+                div_yield REAL,
+                price_interp REAL,
+                adj_price REAL,
+                delta REAL,
+                gamma REAL,
+                theta REAL,
+                vega REAL,
+                id TEXT PRIMARY KEY
+                );
+    '''
 
 if __name__ == "__main__":
+    conn = db_connect(local_file_path)
+    perform_sql(conn, create_table)
 
-    call_month, put_month = preprocessing(df_monthly, df_kospi)
-    call_week, put_week = preprocessing(df_weekly, df_kospi)
-    
-    call_month.to_pickle("./data_pickle/call_monthly.pkl")
-    put_month.to_pickle("./data_pickle/put_monthly.pkl")
-    call_week.to_pickle("./data_pickle/call_weekly.pkl")
-    put_week.to_pickle("./data_pickle/put_weekly.pkl")
+    monthly.to_sql("weekly_total", conn, if_exists = 'replace', index = True)
 
- # %%
+    conn.commit()
+    conn.close()
+

@@ -4,28 +4,33 @@ import numpy as np
 import option_calc as calc
 import compute
 from datetime import datetime
-
+import sql
 
 #%% 
-#1. 데이터 불러오기
+# #1. 데이터 불러오기 sqlite db
 
-call_df_raw = pd.read_pickle("./data_pickle/call_monthly.pkl")
-put_df_raw = pd.read_pickle("./data_pickle/put_monthly.pkl")
+# local_file_path = './option_k200.db'
 
-cycle = 'back'
+# conn = sql.db_connect(local_file_path)
 
-cb_price = calc.get_option_data('price', cycle = 'back', callput = 'call', moneyness_lb = -30, moneyness_ub = 50)
-cb_iv = calc.get_option_data('iv', cycle = 'back', callput = 'call', moneyness_lb = -30, moneyness_ub = 50)
+# query_select = '''
+#                 SELECT * FROM MONTHLY_TOTAL
+# '''
+# # query_select = '''
+# #                 SELECT * FROM weekly_total
+# # '''
 
-pb_price = calc.get_option_data('price', cycle = 'back', callput = 'put', moneyness_lb = -30, moneyness_ub = 50)
-pb_iv = calc.get_option_data('iv', cycle = 'back', callput = 'put', moneyness_lb = -30, moneyness_ub = 50)
+# df_raw = pd.read_sql(query_select, conn)
+# conn.close()
 
 
-# 내가옵션 일정 수준 이상 내가격 가면 거래안되서 0원으로 가격 비는거 처리
-# 1) 일일히 bsm 으로 계산하기 -> 볼이 없어서 정확한 계산 안 됨 / interpolation 가능하나 굳이...?
-# -> 2) 그냥 내재가치로 퉁 치기 VVV
-# 3) 아예 냅두기
+#%% 데이터 불러오기 pkl
 
+monthly = pd.read_pickle("./monthly.pkl")
+call_df_raw = monthly.loc[monthly['cp'] == 'C']
+put_df_raw = monthly.loc[monthly['cp'] == 'P']
+
+#%% 
 # number_of_contracts vol-based dynamic sizing 구현
 # 콜이랑 풋이랑 동시에 할수 있게 > 스트랭글 등등
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
@@ -33,16 +38,16 @@ pb_iv = calc.get_option_data('iv', cycle = 'back', callput = 'put', moneyness_lb
 #%% general 함수 : option function 으로 옮길것
 
 # raw data 에서 옵션 pivot_table 구하는 함수
-def get_pivot_chain_within_group(raw_df, values = ['price', 'iv', 'delta']):
+
+def get_pivot_chain_within_group(raw_df, values = ['adj_price', 'iv_interp', 'delta']):
 
     # multiindex dataframe = [델타-행사가들 / 가격-행사가들, 등가, dte, 종가...] 생성
 
-    res = pd.pivot_table(raw_df, values = values, index = raw_df.index, columns = ['strike'])
+    res = pd.pivot_table(raw_df, values = values, index = raw_df.index, columns = ['strike'], aggfunc='last')
     aux = pd.pivot_table(raw_df, values = ['atm', 'dte', 'close'], index = raw_df.index)
     aux.columns = pd.MultiIndex.from_tuples([(col, "") for col in aux.columns])
     res = pd.concat([res, aux], axis = 1, join = 'inner')
 
-    # 극내가옵션 거래안되서 데이터 NaN 나오는거 -> 콜풋 무관 내재가치로 맞춰놓기
     return res
 
 # 옵션 pivot_table 에서 특정 trade 의 수익 구하는 함수!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -50,9 +55,9 @@ def get_pivot_chain_within_group(raw_df, values = ['price', 'iv', 'delta']):
 # trade_dict = {'entry_date' : , 'k' : , 'number' : } 꼴
 
 def generate_single_trade(df,
-                   dist_from_atm : dict,
+                   dist_from_atm : list,
                    number_of_contracts : list,
-                   preferred_weekday = 0,
+                   preferred_weekday = 4,
                    dte_range = [35, 70]
                    ):
 
@@ -80,48 +85,37 @@ def generate_single_trade(df,
 
     ---> 위에 세개 전부 혼용 가능하도록 (진입시 "0.04%에 긋고 / +7.5 행사 위에다가 매도 후 / 델타 0.05짜리로 외가헤지" 와 같은 전략 구현)
     '''
+    def find_strikes(row, dist_from_atm):
 
-    def find_strikes(row, dist_from_atm : dict, df = df):
-
+        '''
+        row 는 더미값으로 사실상 df.apply(axis = 1) 의 각 행을 변수로 그대로 받는 목적으로 선언
+        '''
         row = row.astype('float64')
-
-        '''
-        루프나 vectorize 할 요량이므로 dataframe 의 개별 행 (진입일자를 index 로 갖는) 에 대한 함수로 정의 
-        어짜피 nested function 인 만큼 df 는 그냥 고정. 건드릴 이유 없음
-        '''
-
         res = []
-
-        for key in dist_from_atm.keys():
-
+        for key, value in dist_from_atm:
             if key == 'number':
-                strike  = row['atm'].squeeze() + dist_from_atm.get(key)
-
+                strike  = row['atm'].squeeze() + value
             elif key == 'pct':
-                raw_value = row['close'].squeeze() * (1 + dist_from_atm.get(key)) 
+                raw_value = row['close'].squeeze() * (1 + value) 
                 strike = calc.get_closest_strike(raw_value)
-
             elif key == 'delta':
-                strike = np.abs((row['delta'] - dist_from_atm.get(key))).astype('float64').idxmin()
-            
+                strike = np.abs((np.abs(row['delta']) - np.abs(value))).astype('float64').idxmin()        
             res.append(strike)
 
         return res
-
     
     res['trade_dict'] = res.apply(lambda row : {
         'entry_date' : row.name,
-        'strikes' : find_strikes(row, dist_from_atm = dist_from_atm, df = df),
+        'strikes' : find_strikes(row, dist_from_atm = dist_from_atm),
         'number_of_contracts' : number_of_contracts
         }, axis = 1)
-
 
     # 4) dynamic sizing
     return res['trade_dict'].tolist()
 
 def get_single_trade_res(df, trade_dict: dict, is_complex_strat = False, profit_take = 0.5, stop_loss = 2):
 
-    df = df['price'] # dataframe 전체에서 가격 부분만 사용
+    df = df['adj_price'] # dataframe 전체에서 가격 부분만 사용
 
     ''' trade_dict
     entry_date : datetime
@@ -150,20 +144,20 @@ def get_single_trade_res(df, trade_dict: dict, is_complex_strat = False, profit_
         loss_target = stop_loss
 
     else:
-        profit_target = np.abs(df_pos_net_premium.iloc[0].squeeze()) * profit_take
-        loss_target = - np.abs(df_pos_net_premium.iloc[0].squeeze()) * stop_loss
+        profit_target = np.abs(df_pos_net_premium.iloc[0].sum().squeeze()) * profit_take
+        loss_target = np.abs(df_pos_net_premium.iloc[0].sum().squeeze()) * stop_loss
         
     # 익절/손절 index 식별 = 익절 또는 손절 나갔을 모든상황중 가장 처음 index 에 해당하는 날짜
 
     # IndexError 발생상황 1 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
-        try:
-            liquidate_date = cum_profit[
-                (cum_profit >= profit_target)|
-                (cum_profit <= loss_target)
-            ].index[0]
+    try:
+        liquidate_date = cum_profit[
+            (cum_profit >= profit_target)|
+            (cum_profit <= loss_target)
+        ].index[0]
 
-        except IndexError:
-            liquidate_date = None
+    except IndexError:
+        liquidate_date = None
 
     df_trade_area = df_trade_area.loc[:liquidate_date]
     df_pos_net_premium = df_pos_net_premium.loc[:liquidate_date] 
@@ -186,6 +180,7 @@ def get_single_trade_res(df, trade_dict: dict, is_complex_strat = False, profit_
 def get_agg_return(df, dist_from_atm, number_of_contracts, preferred_weekday = 0, dte_range = [35,70], is_complex_strat = False, profit_take = 0.5, stop_loss = 2):
 
     res_list = []
+
     trade_list = generate_single_trade(df, dist_from_atm = dist_from_atm, number_of_contracts = number_of_contracts, preferred_weekday = preferred_weekday, dte_range = dte_range)
 
     for trade in trade_list:
@@ -223,46 +218,78 @@ def get_final_result(df_raw_subgroup,
     '''
 
     ''' 내가 저장해놓은 melt 된 데이터형태에서 필요한 값으로만 pivot 구성하기'''
-    df = df_raw_subgroup.pipe(get_pivot_chain_within_group, values = ['price', 'iv', 'delta'])
-    res = get_agg_return(df, dist_from_atm = dist_from_atm, number_of_contracts = number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
-    res = res['daily_ret'].cumsum()
+    try:
+        df = df_raw_subgroup.pipe(get_pivot_chain_within_group, values = ['adj_price', 'iv_interp', 'delta'])
+        res = get_agg_return(df, dist_from_atm = dist_from_atm, number_of_contracts = number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
+        res = res['daily_ret']
+    except:
+        res = None
+
     return res
 
 #%%
 
 if __name__ == "__main__":
+
+    data_from = '2010-01-15' # 옛날에는 행사가가 별로 없어서 전략이 이상하게 나감
     
     # 70-35일 남은 차월물 / 월요일마다 / 델타 0.1 / 양매도 / 중간 익손절 적용 (50% / -200%)
 
-    put_dist_from_atm = {'delta' : 0.1}
-    put_number_of_contracts = [-1]
+    put_dist_from_atm = [
+        ('delta', -0.25),
+        ('delta', -0.22),
+        ('delta', -0.05),
+    ]
+    put_number_of_contracts = [1, -1, -1]
 
-    call_dist_from_atm = {'delta' : 0.1}
-    call_number_of_contracts = [-1]
+    call_dist_from_atm = [
+        ('delta', 0.25),
+        ('delta', 0.17),
+        ('delta', 0.08)
+    ]
+    call_number_of_contracts = [5, -12, 5]
     
     preferred_weekday = 0
     dte_range = [35, 70]
 
-    is_complex_strat = False
-    profit_take = 0.5
-    stop_loss = 2
+    is_complex_strat = True
+    profit_take = 4
+    stop_loss = -4
 
-    grouped_call = call_df_raw.groupby('expiry')
-    grouped_put = put_df_raw.groupby('expiry')
-    
+    grouped_call = call_df_raw.loc[data_from:].groupby('expiry')
+    grouped_put = put_df_raw[data_from:].groupby('expiry')
+
+    all_expiry = grouped_put.groups.keys()
+
+    # 얼토당토않은 가격 조정하는 함수 : 구해놓고 나중에 아예 DB에 쳐박아놓을것
+
 # 테스트용 예시 : 2008-02-14 만기따리
 
-    sample = grouped_call.get_group('2023-07-13')
-    df = get_pivot_chain_within_group(sample)
-    trade_list = generate_single_trade(df, call_dist_from_atm, call_number_of_contracts)
-    ret = get_agg_return(df, call_dist_from_atm, call_number_of_contracts, is_complex_strat = False, profit_take = 0.5, stop_loss = 2)
+    sample = grouped_call.get_group('2010-04-08')
+    cdf = sample.pipe(get_pivot_chain_within_group)
+    ctrade_list = generate_single_trade(cdf, call_dist_from_atm, call_number_of_contracts)
+    cret = get_agg_return(cdf, call_dist_from_atm, call_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
 
-    res0 = pd.concat([get_single_trade_res(df, trade_list[0], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(df, trade_list[0], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
-    res1 = pd.concat([get_single_trade_res(df, trade_list[1], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(df, trade_list[1], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
-    res2= pd.concat([get_single_trade_res(df, trade_list[2], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(df, trade_list[2], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
-    res3 = pd.concat([get_single_trade_res(df, trade_list[3], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(df, trade_list[3], is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
+    cres_n = []
 
-    res = get_final_result(sample, call_dist_from_atm, call_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
+    for trade in ctrade_list:
+        cres = pd.concat([get_single_trade_res(cdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(cdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
+        cres_n.append(cres)
+
+    cres = get_final_result(sample, call_dist_from_atm, call_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
+
+    sample_2 = grouped_put.get_group('2010-04-08')
+    pdf = sample_2.pipe(get_pivot_chain_within_group)
+    ptrade_list = generate_single_trade(pdf, put_dist_from_atm, put_number_of_contracts)
+    pret = get_agg_return(pdf, put_dist_from_atm, put_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
+
+    pres_n = []
+
+    for trade in ptrade_list:
+        pres = pd.concat([get_single_trade_res(pdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['df_premium'], get_single_trade_res(pdf, trade, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)['cum_ret']], axis = 1, join = 'inner')
+        pres_n.append(pres)
+
+    pres = get_final_result(sample_2, put_dist_from_atm, put_number_of_contracts, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
 
 #%%  실전 분석
 
@@ -275,10 +302,14 @@ result_put = grouped_put.apply(get_final_result,
                 profit_take = profit_take, 
                 stop_loss = stop_loss)
 
+#%% 
 
 result_call = grouped_call.apply(get_final_result, 
                 dist_from_atm = call_dist_from_atm, 
                 number_of_contracts = call_number_of_contracts, 
                 preferred_weekday = preferred_weekday, 
-                dte_range = dte_range)
+                dte_range = dte_range,
+                is_complex_strat = is_complex_strat, 
+                profit_take = profit_take, 
+                stop_loss = stop_loss)
 
