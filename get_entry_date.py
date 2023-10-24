@@ -81,12 +81,28 @@ class contrarian:
         return None
 
 class notrade:
-
-    def vix_curve_invert(self, df_vix, inversion_scale = 0):
-
-
-    def vix_above_n(self, df_vix):
         
+    df_vkospi = pd.read_pickle("./data_pickle/df_vkospi.pkl")
+    df_vix = pd.read_pickle("./data_pickle/df_vix.pkl")
+
+    def vix_curve_invert(self, inversion_scale = 0):
+        
+        # 추가보완여지 : slope index 하락할때는 X / 상승반전시*에는 notrade 조건에서 빼기
+        # 상승반전을 뭘로 정의할건지?
+        
+        res = self.df_vix.loc[self.df_vix['slope_index'] < inversion_scale].index
+        return res
+
+    def vkospi_above_n(self, high_or_close = 'close', quantile = 0.8):
+
+        if high_or_close == 'high':
+
+            limit = self.df_vkospi['high'].quantile(quantile)
+        else:
+            limit = self.df_vkospi['close'].quantile(quantile)
+
+        res = self.df_vkospi.loc[self.df_vkospi[high_or_close] > limit].index
+        return res
     
 # 2. 정추세 지속 시그널
 
