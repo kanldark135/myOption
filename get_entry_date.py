@@ -5,7 +5,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pandas_ta as ta
 
-k200 = pd.read_pickle('./data_pickle/k200.pkl')
 
 # custom strategy 저장
 
@@ -20,6 +19,7 @@ k200 = pd.read_pickle('./data_pickle/k200.pkl')
 #     res = pd.concat([df, bb_20, bb_60, sslow_533, rsi_14, rsi_signal, psar], axis = 1)
 #     res.columns = res.columns.str.lower()
 #     res = res.loc[:, (~res.columns.str.startswith(('bbb', 'bbp')))] # 필요없는 컬럼 삭제
+
 
 #     return res
 # df = apply_ta(k200)
@@ -72,14 +72,29 @@ class contrarian:
 
     def rsi_rebound(self, length = 14, scalar = 100):
 
-        res = pd.DataFrame(index = self.df.index, columns = ['signal_rsi'])
+        res = pd.DataFrame(index = self.df.index, columns = ['signal'])
+        rsi = self.ta.rsi(length = length, scalar = scalar)
 
-
-
+        # 롱 시그널
+        
 
         return None
 
+class notrade:
 
+    def vix_curve_invert(self, df_vix, inversion_scale = 0):
+
+
+    def vix_above_n(self, df_vix):
+        
+    
 # 2. 정추세 지속 시그널
 
 # 3. squeeze 폭발 시그널
+
+# 4. 주가 / 지표 다이버전스
+
+class divergence:
+
+    def __init__(self, df):
+        self.df = df

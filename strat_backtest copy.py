@@ -193,7 +193,11 @@ def stop_trade(trade_result : dict, is_complex_strat = False, profit_take = 0.5,
     complex_strat = False 인 경우
     profit / loss 값 = inital credit / debit 의 배수
     '''
-    initial_premium = trade_result['df_premium'].iloc[0].sum().squeeze()
+    try:
+        initial_premium = trade_result['df_premium'].iloc[0].sum().squeeze()
+    except AttributeError:
+        initial_premium = trade_result['df_premium'].iloc[0].sum()
+    
     cumret = trade_result['cumret']
 
     # 익손절 구현
@@ -284,16 +288,16 @@ if __name__ == "__main__":
     k200 = pd.read_pickle("./data_pickle/k200.pkl")
     ta_based_entry = get_entry_date.contrarian(k200)
     stoch = ta_based_entry.stoch_rebound(k = 5, d = 3, smooth_d = 3)
-    entry_dates_stoch = stoch.loc[stoch['signal'] == -1].index
+    entry_dates_stoch = stoch.loc[stoch['signal'] == 1].index
 
     # 2. 목요일마다 진입 (월 = 0 ~ 일 = 6)
     entry_dates_thursday = (monthly.index.unique()[monthly.index.unique().weekday == 3])
 
-    # naked call
-    trade_spec = {'C': [('delta', -0.10, -1)]}
+    # # naked call
+    # trade_spec = {'C': [('delta', -0.10, -1)]}
 
-    # # naked put
-    # trade_spec = {'P': [('pct', -0.08, -1)]}
+    # naked put
+    trade_spec = {'P': [('pct', -0.10, -1)]}
 
     # # strangle
     # trade_spec = {'C': [('pct', 0.08, -1)], 
