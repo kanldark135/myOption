@@ -6,24 +6,19 @@ import matplotlib.pyplot as plt
 import pandas_ta as ta
 
 
-# custom strategy 저장
+def get_date(df, *args):
+    dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
+    dummy['signal'] = 1
+    for i in args:
+        dummy = dummy.multiply(i)
 
-# def apply_ta(df):
-#     bb_20 = df.ta.bbands(20, 2)
-#     bb_60 = df.ta.bbands(60, 2)
-#     sslow_533 = df.ta.stoch(5, 3, 3)
-#     rsi_14 = df.ta.rsi(14)
-#     rsi_signal = rsi_14.rolling(window = 6).mean()
-#     psar = df.ta.psar(0.02, 0.02, 0.2)
+    res = dummy.loc[dummy['signal'] == 1].index
+    return res
+
+# 특정 요일 진입
+
+def weekday_entry(df, weekdays = [3]):
     
-#     res = pd.concat([df, bb_20, bb_60, sslow_533, rsi_14, rsi_signal, psar], axis = 1)
-#     res.columns = res.columns.str.lower()
-#     res = res.loc[:, (~res.columns.str.startswith(('bbb', 'bbp')))] # 필요없는 컬럼 삭제
-
-
-def weekday_entry(weekdays = [3]):
-        
-    df = pd.read_pickle("./data_pickle/df_monthly.pkl")
     df_idx = df.index.unique()
     res = pd.DataFrame(index = df_idx, columns = ['signal'])
     res['signal'] = np.nan
@@ -118,7 +113,7 @@ class notrade:
 
     def vix_curve_invert(notrade_criteria = 0, sma_days = 20):
 
-        df_vix = pd.read_pickle("./data_pickle/df_vix.pkl")
+        df_vix = pd.read_pickle("./working_data/df_vix.pkl")
 
         res = pd.DataFrame(index = df_vix.index, columns = ['signal'])
         res['signal'] = 1
@@ -136,7 +131,7 @@ class notrade:
 
     def vkospi_above_n(df_vkospi, high_or_close = 'close', quantile = 0.8):
 
-        df_vkospi = pd.read_pickle("./data_pickle/df_vkospi.pkl")
+        df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
 
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
         res['signal'] = 1

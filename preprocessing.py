@@ -11,31 +11,31 @@ from datetime import datetime as dt
 
 #%% 
 
-xlsx_file = "./외부데이터종합.xlsx"
+xlsx_file = "./raw_data/외부데이터종합.xlsx"
 
 df_k200 = pd.read_excel(xlsx_file, sheet_name = "k200_hts", usecols = "A:E")
 df_k200.columns = ['date', 'open', 'high', 'low', 'close']
 df_k200.set_index(['date'], inplace = True)
 df_k200.sort_index(ascending = True, inplace = True)
-df_k200.to_pickle("./data_pickle/df_k200.pkl")
+df_k200.to_pickle("./working_data/df_k200.pkl")
 
 df_vkospi = pd.read_excel(xlsx_file, sheet_name = "vkospi_hts", usecols = "A:E")
 df_vkospi.columns = ['date', 'open', 'high', 'low', 'close']
 df_vkospi.set_index(['date'], inplace = True)
 df_vkospi.sort_index(ascending = True, inplace = True)
-df_vkospi.to_pickle("./data_pickle/df_vkospi.pkl")
+df_vkospi.to_pickle("./working_data/df_vkospi.pkl")
 
 df_vix = pd.read_excel(xlsx_file, sheet_name = "vix_bbg", usecols = "A:O", skiprows = 3, index_col = 0)
-df_vix.to_pickle("./data_pickle/df_vix.pkl")
+df_vix.to_pickle("./working_data/df_vix.pkl")
 
 df_rate = pd.read_excel(xlsx_file, sheet_name = "rate_infomax", index_col = 0)
-df_rate.to_pickle("./data_pickle/df_rate.pkl")
+df_rate.to_pickle("./working_data/df_rate.pkl")
 
 
 #%% 
 this_year = 2023
 
-pre = pd.read_pickle("./data_pickle/monthly.pkl")
+pre = pd.read_pickle("./raw_data/raw_monthly.pkl")
 pre = pre[pre['expiry'] < '2023-01-01'] # 당해년도는 삭제후 재업
 
 df = pd.read_excel(f"C:/Users/kanld/Desktop/{this_year}.xlsx", skiprows = 7, index_col = 0)
@@ -90,7 +90,7 @@ final = pd.concat([pre, post], axis = 0)
 final = final.drop_duplicates()
 
 # pickle 파일로 다시 빼기
-final.to_pickle("./data_pickle/monthly.pkl")
+final.to_pickle("./raw_data/raw_monthly.pkl")
 
 
 #%% 위클리 업데이트
@@ -101,7 +101,7 @@ from datetime import datetime as dt
 
 this_year = "2023_w"
 
-pre = pd.read_pickle("./data_pickle/weekly.pkl")
+pre = pd.read_pickle("./raw_data/raw_weekly.pkl")
 
 df = pd.read_excel(f"C:/Users/kanld/Desktop/{this_year}.xlsx", skiprows = 7, index_col = 0)
 
@@ -155,7 +155,7 @@ final = pd.concat([pre, post], axis = 0)
 final = final.drop_duplicates()
 
 # pickle 파일로 다시 빼기
-final.to_pickle("./data_pickle/weekly.pkl")
+final.to_pickle("./raw_data/raw_weekly.pkl")
 
 # %%
 
@@ -180,11 +180,11 @@ import option_calc as calc
 
 #     return df
 
-df_monthly = pd.read_pickle("./data_pickle/monthly.pkl")
-df_weekly = pd.read_pickle("./data_pickle/weekly.pkl")
-df_kospi = pd.read_pickle("./data_pickle/df_k200.pkl")['close']
-df_vkospi = pd.read_pickle("./data_pickle/df_vkospi.pkl")['close']
-df_base_rate = pd.read_pickle("./data_pickle/df_base_rate.pkl")
+df_monthly = pd.read_pickle("./raw_data/raw_monthly.pkl")
+df_weekly = pd.read_pickle("./raw_data/raw_weekly.pkl")
+df_kospi = pd.read_pickle("./working_data/df_k200.pkl")
+df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")['close']
+df_base_rate = pd.read_pickle("./working_data/df_base_rate.pkl")
 
 
 def create_table(df_raw, df_kospi, df_vkospi, df_base_rate):
@@ -203,7 +203,7 @@ def create_table(df_raw, df_kospi, df_vkospi, df_base_rate):
     df_m_1 = df_raw.merge(df_atm, how = 'left', left_index = True, right_index = True)
     df_m_2 = df_m_1.merge(df_kospi, how = 'left', left_index = True, right_index = True)
     df_m_3 = df_m_2.merge(df_vkospi, how = 'left', left_index = True, right_index = True)
-    df_m_4 = df_m_3.merge(df_base_rate, how = 'left', left_index = True, right_index = True)
+    df_m_4 = df_m_3.merge(df_base_rate, how = 'left', left_index = True, right_index = True).rename(columns = {'close_x' : 'close', 'close_y' : 'vkospi'})
 
 #4. 등가격 대비 괴리도 (콜풋 모두 외가격을 양수로 치환)
 
@@ -228,14 +228,14 @@ def create_table(df_raw, df_kospi, df_vkospi, df_base_rate):
     df_m_6 = df_m_6.set_index('date')
     df_m_6 = df_m_6.drop(columns = ['title'])
     df_m_6['expiry'] = pd.to_datetime(df_m_6['expiry'], errors = 'coerce')
-    
+
 # 7 IV 보간 및 보간된 IV 기반의 model_price 산정해서 nan 또는 맥락없는 0 값에 껴넣기
     # 12월 배당락 걸쳐있는 차년도 만기 옵션들의 경우 
     # 매년마다 예상배당수익률 계산하는거 개 낭비같아서 그냥 0.03으로 픽스시킴
 
     grouped = df_m_6.groupby(by = ['expiry', 'date', 'cp'])
 
-    # interpolate iv
+    # interpolate ivs
 
     def iv_interpolation(df):
         res = df['iv']\
@@ -246,10 +246,11 @@ def create_table(df_raw, df_kospi, df_vkospi, df_base_rate):
         return df
 
     df = grouped.apply(iv_interpolation)
+    df.index = df.index.droplevel([0, 1, 2])
 
     # interpolate price computed from interpolated iv
 
-    df['div_yield'] = 0.03 * (~(df.index.year == df['expiry'].dt.year))
+    df['div_yield'] = 0.03 * (~(df.index.year == df['expiry'].dt.year))  # 매년 dividend yield 3% 였던걸로 대충 퉁 침
     call_mask = df['cp'] == 'C'
     df['price_interp'] = np.where(call_mask, calc.call_p(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield), calc.put_p(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield))
 
@@ -279,8 +280,8 @@ weekly['id'] = weekly['cp'] + weekly['expiry'].dt.strftime('%Y%m%d').astype('str
 
 #%% pkl
 
-monthly.to_pickle("./data_pickle/df_monthly.pkl")
-weekly.to_pickle("./data_pickle/df_weekly.pkl")
+monthly.to_pickle("./working_data/df_monthly.pkl")
+weekly.to_pickle("./working_data/df_weekly.pkl")
 
 
  # %% sql

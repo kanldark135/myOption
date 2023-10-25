@@ -118,7 +118,7 @@ def create_trade_entries(df_pivoted,
     res = res.tolist()
     return res
 
-def get_trade_result(df_pivoted, trade_dict: dict):
+def get_single_trade_result(df_pivoted, single_trade: dict):
 
     ''' trade_dict
     entry_date : datetime
@@ -126,8 +126,8 @@ def get_trade_result(df_pivoted, trade_dict: dict):
     contract : list
     '''
     try:
-        df_trade_area = df_pivoted.loc[trade_dict['entry_date'] : , trade_dict['trade']]
-        df_net_premium = df_trade_area.multiply(np.negative(trade_dict['contract']), axis = 1)
+        df_trade_area = df_pivoted.loc[single_trade['entry_date'] : , single_trade['trade']]
+        df_net_premium = df_trade_area.multiply(np.negative(single_trade['contract']), axis = 1)
         df_ret = (df_net_premium.shift(1) - df_net_premium).fillna(0)
         df_cumret = df_ret.cumsum()
         daily_ret = df_ret.sum(axis = 1)
@@ -180,7 +180,7 @@ def get_trade_result(df_pivoted, trade_dict: dict):
 
     return res
 
-def stop_trade(trade_result : dict, is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
+def stop_single_trade(trade_result : dict, is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
     '''
     complex_strat = True 인 경우 (BWB 와 같이 목표손익이 initial credt/debit과 관계 없는 경우)
     profit / loss 값 = 목표손익 포인트
@@ -232,7 +232,7 @@ def stop_trade(trade_result : dict, is_complex_strat = False, profit_take = 0.5,
 
     return res
 
-def get_agg_return(df_pivoted, entry_dates, trade_spec, dte_range = [35,70], is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
+def get_agg_trade_result(df_pivoted, entry_dates, trade_spec, dte_range = [35,70], is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
 
     '''한 만기 내에서 모든 진입시점 만들고 / 각 진입에 대한 만기까지의 손익 및 / 중간익손절까지 반영하여 => 
     각 매매의 결과 (=result_list) list / 전부 합산한 해당 만기의 일일손익 output'''
@@ -240,7 +240,7 @@ def get_agg_return(df_pivoted, entry_dates, trade_spec, dte_range = [35,70], is_
     res_list = []
     trade_list = create_trade_entries(df_pivoted, entry_dates, trade_spec, dte_range)
     for trade in trade_list:
-        trade_res = stop_trade(get_trade_result(df_pivoted, trade),
+        trade_res = stop_single_trade(get_single_trade_result(df_pivoted, trade),
                 is_complex_strat = is_complex_strat, 
                 stop_loss = stop_loss,
                 profit_take = profit_take)['daily_ret']
@@ -264,7 +264,7 @@ def get_final_result(df_raw,
                      stop_loss = -2):
 
     df = df_raw.pipe(get_pivot_table, values = ['adj_price', 'iv_interp', 'delta'])
-    res = get_agg_return(df, entry_dates, trade_spec, dte_range, is_complex_strat, profit_take, stop_loss)
+    res = get_agg_trade_result(df, entry_dates, trade_spec, dte_range, is_complex_strat, profit_take, stop_loss)
     res = res['daily_ret']
 
     return res
@@ -273,38 +273,41 @@ def get_final_result(df_raw,
 
 if __name__ == "__main__":
 
-    monthly = pd.read_pickle("./data_pickle/df_monthly.pkl")
-
+    df_monthly = pd.read_pickle("./working_data/df_monthly.pkl")
+    df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")
+    
     data_from = '2010-01-01' # 옛날에는 행사가가 별로 없어서 전략이 이상하게 나감
 
 # entry_date : 온갖 방법으로 entry date 도출
 
-    def get_date(df, *args):
-        dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
-        dummy['signal'] = 1
-        for i in args:
-            dummy = dummy.multiply(i)
+    from get_entry_date import get_date, weekday_entry, contrarian, notrade
 
-        res = dummy.loc[dummy['signal'] == 1].index
-        return res
+    df_k200 = pd.read_pickle("./working_data/df_k200.pkl")
 
-    from get_entry_date import weekday_entry, contrarian, notrade
+    entry_stoch_long = df_k200.my_contrarian.stoch_rebound(k = 5, d = 3, smooth_d = 3, long_or_short = 'l') # 1. stochastic 역발상 매수일때 진입
+    entry_stoch_short = df_k200.my_contrarian.stoch_rebound(k = 5, d = 3, smooth_d = 3, long_or_short = 's')
 
-    df_k200 = pd.read_pickle("./data_pickle/df_k200.pkl")
-
-    entry_stoch = df_k200.my_contrarian.stoch_rebound(k = 5, d = 3, smooth_d = 3, long_or_short = 'l') # 1. stochastic 역발상 매수일때 진입
-    entry_weekday = weekday_entry([3]) #2. 매주 n요일날 진입
+    entry_bbands_long = df_k200.my_contrarian.through_bbands(20, 2, long_or_short = 'l')
+    entry_bbands_short = df_k200.my_contrarian.through_bbands(20, 2, long_or_short = 's')
+    
+    entry_weekday = weekday_entry(df_k200, [1]) #2. 매주 n요일날 진입
+    
     entry_vix_curve = notrade.vix_curve_invert() #3. vix curve not invert & not 하락추세일때 진입
 
-    entry_dates = get_date(monthly, entry_weekday, entry_vix_curve)
-
+    long_dates = get_date(df_monthly, entry_weekday, entry_vix_curve)
+    short_dates = get_date(df_monthly, entry_bbands_short* -1)
 #----------------------------------------------------
+    # naked call
+    sell_call = {'C': [('delta', 0.2, -1)]}
 
     # naked call
-    buy_call = {'C': [('delta', 0.1, 1)]}
+    buy_call = {'C': [('delta', 0.4, 1)]}
+
+    # naked call
+    buy_put = {'P': [('delta', -0.4, 1)]}
 
     # naked put
-    sell_put = {'P': [('delta', -0.1, -1)]}
+    sell_put = {'P': [('delta', -0.2, -1)]}
 
     # strangle
     sell_strangle = {'C': [('pct', 0.08, -1)], 
@@ -317,42 +320,42 @@ if __name__ == "__main__":
     # put 111
     buy_put111 = {'P': [('delta', -0.25, 1), ('delta', -0.21, -1), ('delta', -0.05, -1)]}
 
-    dte_range = [7, 70]
+    dte_range = [14, 70]
 
     is_complex_strat = False
     profit_take = 0.5
     stop_loss = -1
 
-    grouped = monthly.loc[data_from:].groupby('expiry')
+    grouped = df_monthly.loc[data_from:].groupby('expiry')
 
     all_expiry = grouped.groups.keys()
 
 # 테스트용 예시 : 2008-02-14 만기따리
 
-    sample = grouped.get_group('2020-04-09')
+    sample = grouped.get_group('2018-09-13')
     sample_pivoted = sample.pipe(get_pivot_table)
 
     trade_list = create_trade_entries(df_pivoted = sample_pivoted, 
-                                      entry_dates = entry_dates, 
-                                      trade_spec = sell_ic,
+                                      entry_dates = long_dates, 
+                                      trade_spec = sell_put,
                                         dte_range = dte_range)
     
     single_result_list = []
     for trade in trade_list:
-        res = stop_trade(get_trade_result(sample_pivoted, trade_dict = trade))
+        res = stop_single_trade(get_single_trade_result(sample_pivoted, single_trade = trade), is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
         single_result_list.append(res)
     
-    ret = get_agg_return(df_pivoted = sample_pivoted, 
-                        entry_dates = entry_dates, 
-                        trade_spec = sell_ic,
+    ret = get_agg_trade_result(df_pivoted = sample_pivoted, 
+                        entry_dates = long_dates, 
+                        trade_spec = sell_put,
                         dte_range = dte_range,                        
                         is_complex_strat = is_complex_strat, 
                         profit_take = profit_take, 
                         stop_loss = stop_loss)
     
     result = get_final_result(sample,
-                        entry_dates = entry_dates, 
-                        trade_spec = sell_ic,
+                        entry_dates = long_dates, 
+                        trade_spec = sell_put,
                         dte_range = dte_range,                        
                         is_complex_strat = is_complex_strat, 
                         profit_take = profit_take, 
@@ -361,42 +364,90 @@ if __name__ == "__main__":
 
 #%%  실전 분석
 
-backtest_buy_call = grouped.apply(get_final_result, 
-                        entry_dates = entry_dates, 
+m_buy_call = grouped.apply(get_final_result, 
+                        entry_dates = long_dates, 
                         trade_spec = buy_call,
                         dte_range = dte_range,
                         is_complex_strat = False, 
                         profit_take = 1, 
                         stop_loss = -0.5)
 
-backtest_sell_put = grouped.apply(get_final_result, 
-                        entry_dates = entry_dates,
+m_sell_put = grouped.apply(get_final_result, 
+                        entry_dates = long_dates,
                         dte_range = dte_range,                        
                         trade_spec = sell_put,
                         is_complex_strat = False, 
                         profit_take = 0.5, 
                         stop_loss = -2)
 
-backtest_sell_strangle = grouped.apply(get_final_result, 
-                        entry_dates = entry_dates, 
+m_sell_strangle = grouped.apply(get_final_result, 
+                        entry_dates = long_dates, 
                         dte_range = dte_range,                        
                         trade_spec = sell_strangle,
                         is_complex_strat = False, 
                         profit_take = 0.5, 
                         stop_loss = -2)
 
-backtest_sell_ic = grouped.apply(get_final_result, 
-                        entry_dates = entry_dates, 
+m_sell_ic = grouped.apply(get_final_result, 
+                        entry_dates = long_dates, 
                         trade_spec = sell_ic,
                         dte_range = dte_range,                        
                         is_complex_strat = False, 
                         profit_take = 0.5, 
                         stop_loss = -2)
 
-backtest_buy_put111 = grouped.apply(get_final_result, 
-                        entry_dates = entry_dates, 
+m_buy_put111 = grouped.apply(get_final_result, 
+                        entry_dates = long_dates, 
                         trade_spec = buy_put111,
                         dte_range = dte_range,                        
                         is_complex_strat = True, 
                         profit_take = 2.5, 
                         stop_loss = -2.5)
+
+
+#%%
+
+m_buy_put = grouped.apply(get_final_result, 
+                        entry_dates = short_dates, 
+                        trade_spec = buy_put,
+                        dte_range = dte_range,                        
+                        is_complex_strat = False, 
+                        profit_take = 1, 
+                        stop_loss = -0.5)
+
+m_sell_call = grouped.apply(get_final_result, 
+                        entry_dates = short_dates, 
+                        trade_spec = sell_call,
+                        dte_range = dte_range,                        
+                        is_complex_strat = False, 
+                        profit_take = 0.5, 
+                        stop_loss = -1)
+
+
+#%%  1. 매매날짜에 따른 차이 + vix curve invert 시 매매 X
+
+res_list_2 = []
+
+for i in range(5):
+
+    entry_weekday = weekday_entry(df_k200, [i]) #2. 매주 n요일날 진입
+    entry_vix_curve = notrade.vix_curve_invert() #3. vix curve not invert & not 하락추세일때 진입
+    long_dates = get_date(df_monthly, entry_weekday)
+
+    # m_buy_call = grouped.apply(get_final_result, 
+    #                         entry_dates = long_dates, 
+    #                         trade_spec = buy_call,
+    #                         dte_range = dte_range,
+    #                         is_complex_strat = False, 
+    #                         profit_take = 1, 
+    #                         stop_loss = -0.5)
+
+    m_sell_put = grouped.apply(get_final_result, 
+                            entry_dates = long_dates,
+                            dte_range = dte_range,                        
+                            trade_spec = sell_put,
+                            is_complex_strat = False, 
+                            profit_take = 0.5, 
+                            stop_loss = -2)
+    
+    res_list_2.append(m_sell_put)
