@@ -63,6 +63,8 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 
 ㅁ 추후 과제
 
+# 백테스팅 함수 async 로 비동기적 실행으로 한꺼번에 여러 결과 가져오기 (중장기 코드 수정 필요)
+
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
 
 

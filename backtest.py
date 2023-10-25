@@ -9,7 +9,7 @@ import sql
 #%% 
 # #1. 데이터 불러오기 sqlite db
 
-# local_file_path = './option_k200.db'
+# local_file_path = 'C:/Users/kanld/Desktop/option_k200.db'
 
 # conn = sql.db_connect(local_file_path)
 
@@ -26,6 +26,8 @@ import sql
 #%% general 함수 : option function 으로 옮길것
 
 # raw data 에서 옵션 pivot_table 구하는 함수
+
+
 def get_pivot_table(raw_df, values = ['adj_price', 'iv_interp', 'delta']):
 
     call = raw_df[raw_df['cp'] == "C"]
@@ -117,6 +119,29 @@ def create_trade_entries(df_pivoted,
     
     res = res.tolist()
     return res
+def get_calendar_trade_result(df, front_spec, back_spec, entry_dates):
+
+    #1-1. 만기별 pivot table 만들기
+
+    grouped = df.groupby('expiry')
+    all_pivoted = grouped.apply(get_pivot_table)
+    all_expiry = grouped.groups.keys()
+
+    # 근월 / 차월 만기 pair 생성하는 함수
+    def get_pair_expiry(all_expiry):
+        all_expiry = list(all_expiry)
+        res = list(zip(all_expiry, all_expiry[1:]))
+        return res
+
+    #2. 근월물 진입시점에 맞춰서 차월물 진입시점 일치시키는 함수
+    def get_filtered_trades_back(trade_front, trade_back):
+        front_dates = list(map(lambda trade : trade['entry_date'], trade_front))
+        filtered_trades = list(filter(lambda trade : trade['entry_date'] in front_dates, trade_back))
+        return filtered_trades
+    
+    paired_expiry = get_pair_expiry(all_expiry)
+
+            
 
 def get_single_trade_result(df_pivoted, single_trade: dict):
 
@@ -232,7 +257,13 @@ def stop_single_trade(trade_result : dict, is_complex_strat = False, profit_take
 
     return res
 
-def get_agg_trade_result(df_pivoted, entry_dates, trade_spec, dte_range = [35,70], is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
+def get_agg_trade_result(df_pivoted,
+                         entry_dates,
+                         trade_spec,
+                         dte_range = [35,70],
+                         is_complex_strat = False,
+                         profit_take = 0.5,
+                         stop_loss = -2):
 
     '''한 만기 내에서 모든 진입시점 만들고 / 각 진입에 대한 만기까지의 손익 및 / 중간익손절까지 반영하여 => 
     각 매매의 결과 (=result_list) list / 전부 합산한 해당 만기의 일일손익 output'''
@@ -274,7 +305,7 @@ def get_final_result(df_raw,
 if __name__ == "__main__":
 
     df_monthly = pd.read_pickle("./working_data/df_monthly.pkl")
-    df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")
+    # df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")
     
     data_from = '2010-01-01' # 옛날에는 행사가가 별로 없어서 전략이 이상하게 나감
 
@@ -305,6 +336,7 @@ if __name__ == "__main__":
 
     # naked call
     buy_put = {'P': [('delta', -0.4, 1)]}
+    sell_put_calendar = {'P': [('delta', -0.2, -2)]}
 
     # naked put
     sell_put = {'P': [('delta', -0.2, -1)]}
@@ -327,7 +359,6 @@ if __name__ == "__main__":
     stop_loss = -1
 
     grouped = df_monthly.loc[data_from:].groupby('expiry')
-
     all_expiry = grouped.groups.keys()
 
 # 테스트용 예시 : 2008-02-14 만기따리
@@ -340,10 +371,8 @@ if __name__ == "__main__":
                                       trade_spec = sell_put,
                                         dte_range = dte_range)
     
-    single_result_list = []
-    for trade in trade_list:
-        res = stop_single_trade(get_single_trade_result(sample_pivoted, single_trade = trade), is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss)
-        single_result_list.append(res)
+    trades_res = list(map(lambda trade : get_single_trade_result(sample_pivoted, trade), trade_list))
+    stopped_trades_res = list(map(lambda result : stop_single_trade(result, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss), trades_res))
     
     ret = get_agg_trade_result(df_pivoted = sample_pivoted, 
                         entry_dates = long_dates, 
@@ -363,6 +392,9 @@ if __name__ == "__main__":
                         )
 
 #%%  실전 분석
+
+from functools import partial
+partial()
 
 m_buy_call = grouped.apply(get_final_result, 
                         entry_dates = long_dates, 
