@@ -180,18 +180,9 @@ import option_calc as calc
 
 #     return df
 
-
-# vkospi = pd.read_excel("./종합.xlsx", sheet_name = 'data', usecols = "AR:AS", index_col = 0).dropna().rename(columns = {'종가.2': 'vkospi'})
-# base_rate = pd.read_excel("./base_rate.xlsx", sheet_name = "Sheet1", index_col = 0).dropna()
-# k200 = pd.read_excel("C:/Users/kanld/Desktop/k200.xlsx", sheet_name = 'sheet1', index_col = 0).dropna()
-
-# vkospi.to_pickle("./vkospi.pkl")
-# base_rate.to_pickle("./base_rate.pkl")
-# k200.to_pickle("./k200.pkl")
-
 df_monthly = pd.read_pickle("./data_pickle/monthly.pkl")
 df_weekly = pd.read_pickle("./data_pickle/weekly.pkl")
-df_kospi = pd.read_pickle("./data_pickle/df_k200.pkl")
+df_kospi = pd.read_pickle("./data_pickle/df_k200.pkl")['close']
 df_vkospi = pd.read_pickle("./data_pickle/df_vkospi.pkl")['close']
 df_base_rate = pd.read_pickle("./data_pickle/df_base_rate.pkl")
 

@@ -207,13 +207,13 @@ def get_option_data(component = 'iv', monthlyorweekly = 'monthly', cycle = 'fron
 
     # 데이터 pkl 로컬에 있어야 함
     
-    route = f"./data_pickle/{callput}_{monthlyorweekly}.pkl"
-    dict_cycle = {'front' : 0,
-             'back' : 1,
-             'backback' : 2}
+    route = f"./data_pickle/{monthlyorweekly}.pkl"
+    # dict_cycle = {'front' : 0,
+    #          'back' : 1,
+    #          'backback' : 2}
     
     df = pd.read_pickle(route) # 전체
-    df = df[df['cycle'] == dict_cycle.get(cycle)] # 1. 근/차월물 구분
+    # df = df[df['cycle'] == dict_cycle.get(cycle)] # 1. 근/차월물 구분
 
     cond = {'cond1' : df['moneyness'] >= moneyness_lb, 'cond2' : df['moneyness'] <= moneyness_ub}
     df = df[(cond['cond1'] & cond['cond2'])] # 2. 원하는 moneyness 선택

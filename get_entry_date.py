@@ -21,37 +21,65 @@ import pandas_ta as ta
 #     res = res.loc[:, (~res.columns.str.startswith(('bbb', 'bbp')))] # 필요없는 컬럼 삭제
 
 
-#     return res
-# df = apply_ta(k200)
+def weekday_entry(weekdays = [3]):
+        
+    df = pd.read_pickle("./data_pickle/df_monthly.pkl")
+    df_idx = df.index.unique()
+    res = pd.DataFrame(index = df_idx, columns = ['signal'])
+    res['signal'] = np.nan
+
+    cond = df_idx.weekday.isin(weekdays)
+    res.loc[cond] = 1
+
+    return res
 
 
 # 1. 과열 침체 역방향 시그널
 
+@pd.api.extensions.register_dataframe_accessor('my_contrarian')
 class contrarian:
 
-    def __init__(self, df):
-        self.df = df
+    def __init__(self, df:[pd.DataFrame, pd.Series]):
+        self._df = df
 
-    def through_bbands(self, length = 20, std = 2):
+    def through_bbands(self, length = 20, std = 2, long_or_short ='b'):
+
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
         
-        res = pd.DataFrame(index = self.df.index, columns = ['signal'])
-        bbands = self.df.ta.bbands(length, std)
+        res = pd.DataFrame(index = self._df.index, columns = ['signal'])
+
+        bbands = self._df.ta.bbands(length, std)
         bbands.columns = bbands.columns.str.lower()
         bbands = bbands.loc[:, (~bbands.columns.str.startswith(('bbb', 'bbp')))] # 필요없는 컬럼 삭제
         
         # 롱 시그널
-        cond_long = (self.df['close'] < bbands['bbl_' + str(length) + "_" + str(float(std))]) 
+        cond_long = (self._df['close'] < bbands['bbl_' + str(length) + "_" + str(float(std))]) 
         res.loc[cond_long, 'signal'] = 1
         # 숏 시그널
-        cond_short = (self.df['close'] > bbands['bbu_' + str(length) + "_" + str(float(std))]) 
+        cond_short = (self._df['close'] > bbands['bbu_' + str(length) + "_" + str(float(std))]) 
         res.loc[cond_short, 'signal'] = -1
+
+        if long_or_short == 'l':
+            res = res.mask(res['signal'] == -1, np.nan)
+        elif long_or_short == 's':
+            res = res.mask(res['signal'] == 1, np.nan)
 
         return res
     
-    def stoch_rebound(self, k = 5, d = 3, smooth_d = 3):
+    def stoch_rebound(self, k = 5, d = 3, smooth_d = 3, long_or_short ='b'):
 
-        res = pd.DataFrame(index = self.df.index, columns = ['signal'])
-        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+    
+        res = pd.DataFrame(index = self._df.index, columns = ['signal'])
+        stoch = self._df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
         stoch = stoch.reindex(res.index)
         stoch.columns = stoch.columns.str.lower()
         stoch = stoch.rename(columns = {f'stochk_{k}_{d}_{smooth_d}' : 'k', f'stochd_{k}_{d}_{smooth_d}' : 'd'}) 
@@ -66,43 +94,63 @@ class contrarian:
         cond_short_1 = stoch['k'].shift(1) > 80 # K가 전날 80 위에 (오늘은 상관 없음)
         cond_short_2 = stoch['k'] < stoch['d'] # K가 오늘 D를 하향돌파
         cond_short = cond_short_1 * cond_short_2
-        res.loc[cond_short_1 * cond_short, 'signal'] = -1
+        res.loc[cond_short, 'signal'] = -1
+
+        if long_or_short == 'l':
+            res = res.mask(res['signal'] == -1, np.nan)
+        elif long_or_short == 's':
+            res = res.mask(res['signal'] == 1, np.nan)
 
         return res
 
     def rsi_rebound(self, length = 14, scalar = 100):
 
-        res = pd.DataFrame(index = self.df.index, columns = ['signal'])
+        res = pd.DataFrame(index = self._df.index, columns = ['signal'])
         rsi = self.ta.rsi(length = length, scalar = scalar)
 
         # 롱 시그널
-        
 
         return None
 
-class notrade:
-        
-    df_vkospi = pd.read_pickle("./data_pickle/df_vkospi.pkl")
-    df_vix = pd.read_pickle("./data_pickle/df_vix.pkl")
+# 2. 매매 안 하는 경우 식별
 
-    def vix_curve_invert(self, inversion_scale = 0):
-        
-        # 추가보완여지 : slope index 하락할때는 X / 상승반전시*에는 notrade 조건에서 빼기
-        # 상승반전을 뭘로 정의할건지?
-        
-        res = self.df_vix.loc[self.df_vix['slope_index'] < inversion_scale].index
+class notrade:
+
+    def vix_curve_invert(notrade_criteria = 0, sma_days = 20):
+
+        df_vix = pd.read_pickle("./data_pickle/df_vix.pkl")
+
+        res = pd.DataFrame(index = df_vix.index, columns = ['signal'])
+        res['signal'] = 1
+
+        #1. slope_index < 0 X
+        notrade_cond = df_vix['slope_index'] < notrade_criteria
+
+        #2. slope_index 의 sma_days 이동평균값이 하락 추세인 경우 X
+        curve_score_20ma = df_vix['slope_index'].rolling(sma_days).mean()
+        notrade_cond_2 = curve_score_20ma.diff(1) < 0
+
+        res.loc[notrade_cond & notrade_cond_2, 'signal'] = np.nan
+
         return res
 
-    def vkospi_above_n(self, high_or_close = 'close', quantile = 0.8):
+    def vkospi_above_n(df_vkospi, high_or_close = 'close', quantile = 0.8):
+
+        df_vkospi = pd.read_pickle("./data_pickle/df_vkospi.pkl")
+
+        res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
+        res['signal'] = 1
 
         if high_or_close == 'high':
-
-            limit = self.df_vkospi['high'].quantile(quantile)
+            limit = df_vkospi['high'].quantile(quantile)
         else:
-            limit = self.df_vkospi['close'].quantile(quantile)
+            limit = df_vkospi['close'].quantile(quantile)
 
-        res = self.df_vkospi.loc[self.df_vkospi[high_or_close] > limit].index
+        res.loc[(df_vkospi[high_or_close] > limit), 'signal'] = np.nan
+
         return res
+    
+
     
 # 2. 정추세 지속 시그널
 

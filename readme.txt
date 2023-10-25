@@ -40,12 +40,17 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 # 내가옵션 일정 수준 이상 내가격 가면 거래안되서 0원으로 가격 비는거 처리
 # V 일일히 bsm 으로 계산하기 -> 없는 IV interpolate + extrapolate 은 그냥 fillna 로 제일 마지막 iv랑 동일
 # 진입 /청산시점의 변수화 : 현재 월요일 투자 고정 -> 특정일 list 별로 진입하는걸로 수정 (각종 TA 등등 별도로 날짜 추출)
-# 특정 전략의 손익 하나하나 모듈-> 손익 합산하는 모듈  -> 합산된 손익 기반 익손절 적용하는 모듈
 # 특정 전략 내에서도 leg 별로 익절 손절 따로 구현될수 있게 (래더스프레드 외가익절 / 크레딧스프레드 따로 두기 등)
 => 이건 그냥 전략을 두개로 쪼개서 접근
 (111의 경우 크레딧 스프레드로 백테스트 한번 + 네이키드 풋으로 백테스트 한번 해서 손익 합산)
 
 ㅁ 당장 해야할것
+
+# 특정 전략의 손익 하나하나 모듈-> 손익 합산하는 모듈  -> 합산된 손익 기반 익손절 적용하는 모듈
+익손절을 일단 get_return_to_exp_1 / get_return_to_exp_2... 식으로 만들어놓고 그다음에 적용...?
+
+# 캘린더라이즈
+
 # 매매 통계 내기
 1) 총 매매 횟수
 2) 매매 승률
@@ -57,7 +62,7 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 # number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing
 
 ㅁ 추후 과제
-# 캘린더라이즈
+
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
 
 
@@ -72,3 +77,6 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 ㅁ해야할것
 데이터 포맷 바뀌게되는 상황 + 신규 데이터 들어오는거 로데이터 어떻게 업데이트할지 재차 고민 (preprocessing 모듈의 1/2번 단락들)
 
+ㅇ option_calc.py
+
+ㅁ 스큐 / 텀 구하는 식 수정하기
