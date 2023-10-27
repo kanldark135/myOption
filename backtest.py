@@ -254,13 +254,41 @@ def get_single_expiry_result(df_pivoted,
                                                            is_complex_strat = is_complex_strat,
                                                            profit_take = profit_take,
                                                            stop_loss = stop_loss).get('daily_ret'), range(len(trade_res))))
+    
+    trade_summary_stopped = list(map(lambda idx : stop_single_trade(trade_res[idx],
+                                                           is_complex_strat = is_complex_strat,
+                                                           profit_take = profit_take,
+                                                           stop_loss = stop_loss).get('df_ret'), range(len(trade_res))))
+    
     #4. 결과 합산해서 해당 expiry 전체 일수익률 도출
     try: 
         daily_ret = pd.concat(trade_res_stopped, axis = 1).sum(axis = 1)
     except ValueError:
         daily_ret = pd.Series(0, index = df_pivoted.index)
 
-    return daily_ret
+    # 통계용 summary 도출
+
+    summary = {}
+    summary['n'] = 0 # 해당 만기 내 trade 횟수
+    summary['n_win'] = 0
+
+    for idx in range(len(trade_summary_stopped)):
+        single_trade_res = trade_summary_stopped[idx]
+        df_ret = single_trade_res
+        final_ret = single_trade_res.iloc[-1].sum().squeeze()
+        summary[pd.to_datetime(trade_entry[idx].get('entry_date'))] = {
+            'trade_ret' : df_ret, # 해당 만기 내 개별 trade 들의 각각의 일수익금 df
+            'final_ret' : final_ret # 해당 만기 내 개별 trade 들의 각각의 최종수익금
+        }
+
+        if final_ret != 0:
+            summary['n'] = summary['n'] + 1 # 매매 누적수익률이 0이라는건 해당 월물에 매매 한건도 없다는거임
+        elif final_ret > 0:
+            summary['n_win'] = summary['n_win'] + 1
+        else:
+            pass
+    
+    return daily_ret, summary
 
 def get_vertical_trade_result(df, 
                      entry_dates, 
@@ -273,7 +301,10 @@ def get_vertical_trade_result(df,
     grouped = df.groupby('expiry')
     all_expiry = grouped.groups.keys()
 
-    final_res_list = {}
+    final_ret_list = {}
+    final_summary = {}
+    number_of_trades = 0
+    number_of_winners = 0
 
     for expiry in all_expiry:
         df = grouped.get_group(expiry)
@@ -284,9 +315,18 @@ def get_vertical_trade_result(df,
                                    is_complex_strat = is_complex_strat,
                                    profit_take = profit_take,
                                    stop_loss = stop_loss)
-        final_res_list[expiry] = res
-    daily_ret = pd.DataFrame(final_res_list).stack().swaplevel(0, 1)
-    return daily_ret
+        final_ret_list[expiry] = res[0]
+        single_summary = res[1]
+        number_of_trades += single_summary.pop('n')
+        number_of_winners += single_summary.pop('n_win')
+        final_summary.update(single_summary)
+    
+    final_summary['n'] = number_of_trades
+    final_summary['n_win'] = number_of_winners
+
+    daily_ret = pd.DataFrame(final_ret_list).stack().swaplevel(0, 1)
+
+    return {'daily_ret' : daily_ret, 'summary' : final_summary}
 
 ## get calendar trade_result + list
 def get_calendar_trade_result(df_monthly, 
@@ -318,7 +358,7 @@ def get_calendar_trade_result(df_monthly,
     # (근월만기, 차월만기) 리스트 도출
     paired_expiry = get_pair_expiry(all_expiry)
     
-    final_res_list = {}
+    final_ret_list = {}
 
     for front, back in paired_expiry: # 모든 (근월만기, 차월만기) 리스트에 대해서
     
@@ -383,9 +423,9 @@ def get_calendar_trade_result(df_monthly,
         except ValueError:
             daily_ret = pd.Series(0, index = front_pivoted.index)
         
-        final_res_list[front] = daily_ret
+        final_ret_list[front] = daily_ret
     
     # 8. 단일만기 trade랑 동일한 구조로 변경
-    daily_ret = pd.DataFrame(final_res_list).stack().swaplevel(0, 1)
+    daily_ret = pd.DataFrame(final_ret_list).stack().swaplevel(0, 1)
     
     return daily_ret
