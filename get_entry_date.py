@@ -114,33 +114,39 @@ class notrade:
     def vix_curve_invert(notrade_criteria = 0, sma_days = 20):
 
         df_vix = pd.read_pickle("./working_data/df_vix.pkl")
-
         res = pd.DataFrame(index = df_vix.index, columns = ['signal'])
         res['signal'] = 1
-
         #1. slope_index < 0 X
         notrade_cond = df_vix['slope_index'] < notrade_criteria
-
         #2. slope_index 의 sma_days 이동평균값이 하락 추세인 경우 X
         curve_score_20ma = df_vix['slope_index'].rolling(sma_days).mean()
         notrade_cond_2 = curve_score_20ma.diff(1) < 0
-
         res.loc[notrade_cond & notrade_cond_2, 'signal'] = np.nan
 
         return res
 
-    def vkospi_above_n(df_vkospi, high_or_close = 'close', quantile = 0.8):
+    def vkospi_below_n(low_or_close = 'close', quantile = 0.2):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
-
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
         res['signal'] = 1
+        if low_or_close == 'low':
+            limit = df_vkospi['low'].quantile(quantile)
+        else:
+            limit = df_vkospi['close'].quantile(quantile)
+        res.loc[(df_vkospi[low_or_close] < limit), 'signal'] = np.nan
 
+        return res
+    
+    def vkospi_above_n(high_or_close = 'close', quantile = 0.8):
+
+        df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
+        res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
+        res['signal'] = 1
         if high_or_close == 'high':
             limit = df_vkospi['high'].quantile(quantile)
         else:
             limit = df_vkospi['close'].quantile(quantile)
-
         res.loc[(df_vkospi[high_or_close] > limit), 'signal'] = np.nan
 
         return res
