@@ -28,16 +28,15 @@ def weekday_entry(df, weekdays = [3]):
 
     return res
 
-
 # 1. 과열 침체 역방향 시그널
 
-@pd.api.extensions.register_dataframe_accessor('my_contrarian')
+@pd.api.extensions.register_dataframe_accessor('contra')
 class contrarian:
 
     def __init__(self, df:[pd.DataFrame, pd.Series]):
         self._df = df
 
-    def through_bbands(self, l_or_s ='b', length = 20, std = 2):
+    def through_bbands(self, l_or_s = 'b', length = 20, std = 2):
 
         '''
         long_only = 'l'
@@ -104,12 +103,13 @@ class contrarian:
         else:
             raise ValueError("l_or_s must be l, s or b")            
 
+
         return res
 
     def rsi_rebound(self, l_or_s = 'l', length = 14, scalar = 100):
 
         res = pd.DataFrame(index = self._df.index, columns = ['signal'])
-        rsi = self.ta.rsi(length = length, scalar = scalar)
+        rsi = self._df.ta.rsi(length = length, scalar = scalar)
         
         # 롱 시그널
         cond_long_1 = rsi.shift(1) < 30 # 어제 하한선 하회
@@ -132,7 +132,23 @@ class contrarian:
         else:
             raise ValueError("l_or_s must be l, s or b")            
         return res
-    
+        
+    def psar_rebound(self, l_or_s = 'l'):
+
+        psar = self._df.ta.psar()
+        psar = psar.rename(columns = {'PSARl_0.02_0.2' : 'l', 'PSARs_0.02_0.2' : 's', 'PSARr_0.02_0.2' : 'signal'})    
+        res = psar['signal'].mask((psar['s'].notna())&(psar['signal'] == 1), -1).to_frame()
+        res = res.mask(res['signal'] == 0, np.nan)
+
+        if l_or_s == 'l':
+            res = res.mask(res['signal'] == -1, np.nan) 
+        elif l_or_s == 's':
+            res = res.mask(res['signal'] == 1, np.nan)
+        elif l_or_s == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")            
+        return res
 
 # 2. 매매 안 하는 경우 식별
 
@@ -152,7 +168,7 @@ class notrade:
 
         return res
 
-    def no_vkospi_below_n(low_or_close = 'close', quantile = 0.2):
+    def no_vkospi_below_n(quantile = 0.2, low_or_close = 'close', ):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])

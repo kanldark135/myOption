@@ -16,34 +16,51 @@ data_from = '2010-01' # 옛날에는 행사가가 별로 없어서 전략이 이
 df_monthly = df_monthly.sort_index().loc[data_from:]
 df_weekly = df_weekly.sort_index().loc['2019-01':]
 
+# na to 1, 1 to na conversion
+def flip(df):
+    res = df.copy()
+    res['signal'] = np.where(res['signal'] == 1, np.nan, 1)
+    return res
+
 # entry_date : 온갖 방법으로 entry date 도출
 
 from get_entry_date import get_date, weekday_entry, contrarian, notrade
 
 df_k200 = pd.read_pickle("./working_data/df_k200.pkl")
 
+#진입일수 필터링 (날짜)
 entry_weekday = weekday_entry(df_k200, [0, 4]) #1. 매주 n요일날 진입
 
-entry_stoch_long = df_k200.my_contrarian.stoch_rebound(k = 5, d = 3, smooth_d = 3, l_or_s = 'l') # 1. stochastic 역발상 매수일때 진입
-entry_stoch_short = df_k200.my_contrarian.stoch_rebound(k = 5, d = 3, smooth_d = 3, l_or_s = 's')
+#역발상_상승전환 ~ 상승
+entry_stoch_long = df_k200.contra.stoch_rebound(l_or_s = 'l', k = 5, d = 3, smooth_d = 3)
+entry_bbands_long = df_k200.contra.through_bbands(l_or_s = 'l', length = 20, std = 2)
+entry_rsi_long = df_k200.contra.rsi_rebound(l_or_s = 'l', length = 14, scalar = 20)
+entry_psar_long = df_k200.contra.psar_rebound(l_or_s = 'l')
 
-# 스토캐스틱 숏(=과열) 일때 콜매도 진입이 아니라 풋매도 미진입하는 조건으로 사용
-noentry_stoch_short = entry_stoch_short.copy()
-noentry_stoch_short.loc[:, 'signal'] = np.where(entry_stoch_short['signal'] == -1, np.nan, 1)
+#모멘텀_상승지속??
 
-noentry_stoch_long = entry_stoch_long.copy()
-noentry_stoch_long.loc[:, 'signal'] = np.where(entry_stoch_long['signal'] == 1, np.nan, 1)
+#역발상_하락전환 ~ 하락
+entry_stoch_short = df_k200.contra.stoch_rebound(l_or_s = 's', k = 5, d = 3, smooth_d = 3)
+entry_bbands_short = df_k200.contra.through_bbands(l_or_s = 's', length = 20, std = 2)
+entry_rsi_short = df_k200.contra.rsi_rebound(l_or_s = 's', length = 14, scalar = 20)
+entry_psar_short = df_k200.contra.psar_rebound(l_or_s = 's')
 
+#모멘텀_하락지속??
+noentry_stoch_short = filp(entry_stoch_short)
+noentry_stoch_long = flip(entry_stoch_long)
+
+#변동성 감소 ~ contained
 noentry_stoch_limit = noentry_stoch_short * noentry_stoch_long
-
-entry_bbands_long = df_k200.my_contrarian.through_bbands(20, 2, l_or_s = 'l')
-entry_bbands_short = df_k200.my_contrarian.through_bbands(20, 2, l_or_s = 's')
-
 noentry_vix_curve = notrade.no_vix_curve_invert() #3. vix curve not invert & not 하락추세일때 진입
 noentry_vkospi_below_n = notrade.no_vkospi_below_n(quantile = 0.2) # vkospi n보다 낮으면 진입 X
 noentry_vkospi_above_n = notrade.no_vkospi_above_n(quantile = 0.2) # vkospi n보다 높으면 진입 X
 
-##------------------
+#변동성 증대
+entry_vkospi_below_n = flip(notrade.no_vkospi_below_n(0.2))
+
+
+
+##풋매도계열 진입 (변동성 높고 / 하방 위험할때 x)------------------
 
 date_sell_put = dict(
 date_sell_put1 = get_date(df_monthly, entry_weekday), # 일만 정해놓고 진입
@@ -56,7 +73,7 @@ date_sell_put7 = get_date(df_monthly, noentry_vkospi_below_n, noentry_vix_curve)
 date_sell_put8 = get_date(df_monthly, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short) # 일 + X 스토캐스틱 과열 + X vkospi200 +
 )
 
-#--------------------------------------------------
+#뉴트럴매도 진입 : 변동성 높고 / 위아래 방향성 아닌 경우--------------------------------------------------
 date_neutral = dict(
 date_neutral1 = get_date(df_monthly),
 date_neutral2 = get_date(df_monthly, entry_weekday),
@@ -65,7 +82,7 @@ date_neutral4 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noen
 date_neutral5 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_limit),
 date_neutral6 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short)
 )
-#--------------------------------------------------
+#콜매수계열 진입 (변동성 낮고 / --------------------------------------------------
 date_buy_call = dict(
 date_neutral1 = get_date(df_monthly),
 date_neutral2 = get_date(df_monthly, entry_weekday),
@@ -85,8 +102,17 @@ date_neutralw5 = get_date(df_weekly, entry_weekday_w, noentry_vkospi_below_n, no
 date_neutralw6 = get_date(df_weekly, entry_weekday_w, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short),
 )
 #----------------------------------------------------
+date_buy_call = dict(
+    date_buy_call1 = get_date(df_monthly),
+    date_buy_call2 = get_date(df_monthly)
+)
 
-# long delta strategy
+# 풋매수계열 진입 (변동성 낮고 / 하방 변곡점) -------------------------------
+date_buy_put = dict(
+    date_buy_put1 = get_date(df_monthly, entry_stoch_short)
+)
+
+# long call
 
 buy_call40 = {'C': [('delta', 0.4, 1)]}
 buy_call30 = {'C': [('delta', 0.3, 1)]}
@@ -96,11 +122,11 @@ buy_call10 = {'C': [('delta', 0.1, 1)]}
 # call debit spread
 buy_call_ds = {'C' : [('number', 0, 1), ('number', 2.5, -1)]}
 buy_call_backspread = {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]}
-buy_call_ratio = {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]} 
-# 기본적으로 콜 skew 누워서 불리 > skew 따라 이득보려면 아예 매수부터 외가에 구축해야함
+buy_call_ratio = {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]}
+buy_call_front = {'C' : [('delta', 0.3, -1)]}
+sell_call_back = {'C' : [('delta', 0.15, 2)]} # 기본적으로 콜 skew 누워서 불리 > skew 따라 이득보려면 아예 매수부터 외가에 구축해야함
 
-# call 
-buy_call_c
+
 
 
 # put bwb
@@ -166,6 +192,27 @@ sell_put_back5 = {"P" : [('delta', -0.07, -2)]}
 
 
 #%% quick test section
+buy_call = backtest.get_vertical_trade_result(df_monthly,
+                                                entry_dates = get_date(entry_stoch_long),
+                                                trade_spec = buy_call20,
+                                                dte_range = [7, 70],
+                                                is_complex_strat = False,
+                                                profit_take = 2,
+                                                stop_loss = -0.5)
+
+#%%
+
+putcalendar2 = backtest.get_calendar_trade_result(df_monthly,
+                                                    entry_dates = values,
+                                                    front_spec = buy_put_front2,
+                                                    back_spec = sell_put_back2,
+                                                    front_dte = [21, 42],
+                                                    back_dte = [28, 77],
+                                                    is_complex_strat = True,
+                                                    profit_take = 1,
+                                                    stop_loss = -2.5
+    )         
+
 buy_call = backtest.get_vertical_trade_result(df_monthly,
                                                 entry_dates = date_sell_put.get('date_sell_put4'),
                                                 trade_spec = buy_call40,
