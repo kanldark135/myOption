@@ -5,6 +5,7 @@ import option_calc as calc
 import compute
 from datetime import datetime
 import sql
+import concurrent.futures
 
 #%% 
 # #1. 데이터 불러오기 sqlite db
@@ -52,7 +53,7 @@ def get_pivot_table(raw_df, values = ['adj_price', 'iv_interp', 'delta']):
 
     res = pd.concat([call_pivot, put_pivot], axis = 1)
 
-    aux = pd.pivot_table(raw_df, values = ['atm', 'dte', 'close'], index = raw_df.index)
+    aux = pd.pivot_table(raw_df, values = ['atm', 'dte', 'close', 'vkospi'], index = raw_df.index)
     aux.columns = pd.MultiIndex.from_tuples([(col, "", "") for col in aux.columns])
     res = pd.concat([res, aux], axis = 1, join = 'inner')
 
@@ -116,8 +117,11 @@ def create_trade_entries(df_pivoted,
         'trade' : create_trade(row, trade_spec = trade_spec)[0],
         'contract' : create_trade(row, trade_spec = trade_spec)[1]}, axis = 1
         )
-    
-    res = res.tolist()
+    try:
+        res = res.tolist()
+    except AttributeError: # 해당 만기에 거래 1도 없는경우 dummy trade 생성해서 밑에서 0 trade로 환원
+        res = {'entry_date' : '9999-99-99', 'trade' : [], 'contract' : 0}
+
     return res
 
 def get_single_trade_result(df_pivoted, single_trade: dict):
@@ -131,15 +135,13 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
         df_trade_area = df_pivoted.loc[single_trade['entry_date'] : , single_trade['trade']]
         df_net_premium = df_trade_area.multiply(np.negative(single_trade['contract']), axis = 1)
         df_ret = (df_net_premium.shift(1) - df_net_premium).fillna(0)
-        df_cumret = df_ret.cumsum()
         daily_ret = df_ret.sum(axis = 1)
-        cumret = df_cumret.sum(axis = 1)
+        cumret = df_ret.cumsum().sum(axis = 1)
 
         res = {
             'area' : df_trade_area,
             'df_premium' : df_net_premium,
             'df_ret' : df_ret,
-            'df_cumret' : df_cumret,
             'daily_ret' : daily_ret,
             'cumret' : cumret
         }
@@ -148,7 +150,6 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
         df_trade_area = pd.Series(0, index = df_pivoted.index)
         df_net_premium = pd.Series(0, index = df_pivoted.index)        
         df_ret = pd.Series(0, index = df_pivoted.index)
-        df_cumret = pd.Series(0, index = df_pivoted.index)
         daily_ret = pd.Series(0, index = df_pivoted.index)
         cumret = pd.Series(0, index = df_pivoted.index)
 
@@ -156,7 +157,6 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
             'area' : df_trade_area,
             'df_premium' : df_net_premium,
             'df_ret' : df_ret,
-            'df_cumret' : df_cumret,
             'daily_ret' : daily_ret,
             'cumret' : cumret
         }
@@ -167,7 +167,6 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
         df_trade_area = pd.Series(0, index = df_pivoted.index)
         df_net_premium = pd.Series(0, index = df_pivoted.index)        
         df_ret = pd.Series(0, index = df_pivoted.index)
-        df_cumret = pd.Series(0, index = df_pivoted.index)
         daily_ret = pd.Series(0, index = df_pivoted.index)
         cumret = pd.Series(0, index = df_pivoted.index)
 
@@ -175,14 +174,13 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
             'area' : df_trade_area,
             'df_premium' : df_net_premium,
             'df_ret' : df_ret,
-            'df_cumret' : df_cumret,
             'daily_ret' : daily_ret,
             'cumret' : cumret
         }
 
     return res
 
-def stop_single_trade(trade_result : dict, is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
+def stop_single_trade(trade_result : dict, custom_stop = None, is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
     '''
     complex_strat = True 인 경우 (BWB 와 같이 목표손익이 initial credt/debit과 관계 없는 경우)
     profit / loss 값 = 목표손익 포인트
@@ -197,29 +195,32 @@ def stop_single_trade(trade_result : dict, is_complex_strat = False, profit_take
     
     cumret = trade_result['cumret']
 
-    # 익손절 구현
-    if is_complex_strat == True:
-        
-        profit_target = profit_take
-        loss_target = stop_loss
-    else:
-        profit_target = max(np.abs(initial_premium) * profit_take, 0.01)
-        loss_target = min(np.abs(initial_premium) * stop_loss, -0.01)
-        
-    # IndexError 발생상황 1 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
-    try:
-        liquidate_date = cumret[
-            (cumret >= profit_target)|
-            (cumret <= loss_target)
-        ].index[0]
+    if custom_stop == None: # custom stop date list 없으면 손익기준 stop
 
-    except IndexError:
-        liquidate_date = None
+        if is_complex_strat == True:
+            
+            profit_target = profit_take
+            loss_target = stop_loss
+        else:
+            profit_target = max(np.abs(initial_premium) * profit_take, 0.01)
+            loss_target = min(np.abs(initial_premium) * stop_loss, -0.01)
+            
+        # IndexError 발생상황 1 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
+        try:
+            liquidate_date = cumret[
+                (cumret >= profit_target)|
+                (cumret <= loss_target)
+            ].index[0]
+
+        except IndexError:
+            liquidate_date = None
+    
+    else:
+        liquidate_date = cumret.loc[cumret.index.isin(custom_stop)].index[0]
 
     df_trade_area = trade_result['area'].loc[:liquidate_date]
     df_net_premium = trade_result['df_premium'].loc[:liquidate_date] 
     df_ret = trade_result['df_ret'].loc[:liquidate_date]
-    df_cumret = trade_result['df_cumret'].loc[:liquidate_date]
     daily_ret = trade_result['daily_ret'].loc[:liquidate_date]
     cumret = trade_result['cumret'].loc[:liquidate_date]
 
@@ -227,7 +228,6 @@ def stop_single_trade(trade_result : dict, is_complex_strat = False, profit_take
     'area' : df_trade_area,
     'df_premium' : df_net_premium,
     'df_ret' : df_ret,
-    'df_cumret' : df_cumret,
     'daily_ret' : daily_ret,
     'cumret' : cumret
     }
@@ -251,44 +251,52 @@ def get_single_expiry_result(df_pivoted,
     trade_res = list(map(lambda trade : get_single_trade_result(df_pivoted, trade), trade_entry))
     #3. 만기보유 df에 stop 조건 적용
     trade_res_stopped = list(map(lambda idx : stop_single_trade(trade_res[idx],
-                                                           is_complex_strat = is_complex_strat,
-                                                           profit_take = profit_take,
-                                                           stop_loss = stop_loss).get('daily_ret'), range(len(trade_res))))
-    
+                                                        is_complex_strat = is_complex_strat,
+                                                        profit_take = profit_take,
+                                                        stop_loss = stop_loss).get('daily_ret'), range(len(trade_res))))
+
     trade_summary_stopped = list(map(lambda idx : stop_single_trade(trade_res[idx],
-                                                           is_complex_strat = is_complex_strat,
-                                                           profit_take = profit_take,
-                                                           stop_loss = stop_loss).get('df_ret'), range(len(trade_res))))
-    
-    #4. 결과 합산해서 해당 expiry 전체 일수익률 도출
+                                                        is_complex_strat = is_complex_strat,
+                                                        profit_take = profit_take,
+                                                        stop_loss = stop_loss).get('df_ret'), range(len(trade_res))))
+
+#4. 결과 합산해서 해당 expiry 전체 일수익률 도출
     try: 
         daily_ret = pd.concat(trade_res_stopped, axis = 1).sum(axis = 1)
     except ValueError:
         daily_ret = pd.Series(0, index = df_pivoted.index)
 
-    # 통계용 summary 도출
-
-    summary = {}
-    summary['n'] = 0 # 해당 만기 내 trade 횟수
-    summary['n_win'] = 0
+    all_trades = {}
+    number_of_trades = 0
+    number_of_winners = 0
 
     for idx in range(len(trade_summary_stopped)):
-        single_trade_res = trade_summary_stopped[idx]
-        df_ret = single_trade_res
-        final_ret = single_trade_res.iloc[-1].sum().squeeze()
-        summary[pd.to_datetime(trade_entry[idx].get('entry_date'))] = {
-            'trade_ret' : df_ret, # 해당 만기 내 개별 trade 들의 각각의 일수익금 df
-            'final_ret' : final_ret # 해당 만기 내 개별 trade 들의 각각의 최종수익금
-        }
+        single_trade_res = trade_summary_stopped[idx].dropna()
+        try:
+            single_trade_res_summed = single_trade_res.sum(axis = 1, skipna = False)
+            final_ret = single_trade_res_summed.cumsum().iloc[-1].squeeze()
 
-        if final_ret != 0:
-            summary['n'] = summary['n'] + 1 # 매매 누적수익률이 0이라는건 해당 월물에 매매 한건도 없다는거임
-        elif final_ret > 0:
-            summary['n_win'] = summary['n_win'] + 1
-        else:
+            all_trades[pd.to_datetime(trade_entry[idx].get('entry_date'))] = {
+            'trade_ret' : single_trade_res, # 해당 만기 내 개별 trade 들의 각각의 일수익금 df
+            'final_ret' : final_ret, # 해당 만기 내 개별 trade 들의 각각의 최종수익금
+            'trade_drawdown' : single_trade_res_summed.min(),
+            # 해당 만기 내 개별 trade 의 운용 중 최대 평가손실 (손절쳤으면 확정손실)
+            'drawdown_date' : single_trade_res_summed.astype('float64').idxmin()
+            # drawdown 발생한 날 / daily_ret 에서 식별하는 날과 다름 (이건 entry_date)
+            }
+            number_of_trades = number_of_trades + 1 # 매매 누적수익률이 0이라는건 해당 월물에 매매 한건도 없다는거임
+            if final_ret > 0:
+                number_of_winners = number_of_winners + 1
+
+        except ValueError:
             pass
+
+    all_trades = pd.DataFrame(all_trades).T
+    summary = {'n' : number_of_trades, 'win' : number_of_winners}
     
-    return daily_ret, summary
+    res = {'daily_ret' : daily_ret, 'all_trades' : all_trades, 'summary' : summary}
+
+    return res
 
 def get_vertical_trade_result(df, 
                      entry_dates, 
@@ -299,10 +307,10 @@ def get_vertical_trade_result(df,
                      stop_loss = -2):
     
     grouped = df.groupby('expiry')
-    all_expiry = grouped.groups.keys()
+    all_expiry = list(grouped.groups.keys())
 
-    final_ret_list = {}
-    final_summary = {}
+    daily_ret_list = {}
+    all_trades = []
     number_of_trades = 0
     number_of_winners = 0
 
@@ -315,18 +323,44 @@ def get_vertical_trade_result(df,
                                    is_complex_strat = is_complex_strat,
                                    profit_take = profit_take,
                                    stop_loss = stop_loss)
-        final_ret_list[expiry] = res[0]
-        single_summary = res[1]
+        daily_ret_list[expiry] = res['daily_ret']
+        
+        all_trades.append(res['all_trades'])
+        
+        single_summary = res['summary']
         number_of_trades += single_summary.pop('n')
-        number_of_winners += single_summary.pop('n_win')
-        final_summary.update(single_summary)
+        number_of_winners += single_summary.pop('win')
+
+    # 계좌 총 일일 손익
+    daily_ret = pd.DataFrame(daily_ret_list).stack().swaplevel(0, 1)
+    # 진행했던 모든 매매들 및 각 누적수익. entry_date 을 index로 dataframe 화 (dataframe inside dataframe)
+    all_trades = pd.concat(all_trades, axis = 0)
+
+    # 주요 통계
+    total_ret = all_trades['final_ret'].sum()
+    avg_ret = all_trades['final_ret'].mean() # 실현수익 기준 평균 금액 수익
+    avg_win = all_trades['final_ret'].loc[all_trades['final_ret'] > 0].mean()
+    avg_loss = all_trades['final_ret'].loc[all_trades['final_ret'] < 0].mean()
+    account_volatility = daily_ret.std() # 계좌총액 기준 금액 변동성
+    strat_mdd = (all_trades['trade_drawdown'].min(), all_trades['drawdown_date'].loc[all_trades['trade_drawdown'].astype('float64').idxmin()])
+    net_liq_mdd = (daily_ret.min(), daily_ret.idxmin()[1])
     
-    final_summary['n'] = number_of_trades
-    final_summary['n_win'] = number_of_winners
+    summary = {'n' : number_of_trades,
+    'win' : number_of_winners,
+    'total_ret' : total_ret,
+    'avg_ret' : avg_ret,
+    'avg_loss' : avg_loss,
+    'vol' : account_volatility,
+    'single_strat_mdd' : strat_mdd,
+    'net_liq_mdd' : net_liq_mdd
+    }
+    
+    final_res = {'daily_ret' : daily_ret,
+    'all_trades' : all_trades,
+    'summary' : summary
+    }
 
-    daily_ret = pd.DataFrame(final_ret_list).stack().swaplevel(0, 1)
-
-    return {'daily_ret' : daily_ret, 'summary' : final_summary}
+    return final_res
 
 ## get calendar trade_result + list
 def get_calendar_trade_result(df_monthly, 
@@ -358,7 +392,10 @@ def get_calendar_trade_result(df_monthly,
     # (근월만기, 차월만기) 리스트 도출
     paired_expiry = get_pair_expiry(all_expiry)
     
-    final_ret_list = {}
+    daily_ret_list = {}
+    all_trades = {}
+    number_of_trades = 0
+    number_of_winners = 0
 
     for front, back in paired_expiry: # 모든 (근월만기, 차월만기) 리스트에 대해서
     
@@ -384,7 +421,6 @@ def get_calendar_trade_result(df_monthly,
                     agg_area = pd.concat([front_trade_res[i]['area'], back_trade_res[i]['area']], axis = 1)
                     agg_premium = pd.concat([front_trade_res[i]['df_premium'], back_trade_res[i]['df_premium']], axis = 1)
                     agg_ret = pd.concat([front_trade_res[i]['df_ret'], back_trade_res[i]['df_ret']], axis = 1)
-                    agg_cum_ret = pd.concat([front_trade_res[i]['df_cumret'], back_trade_res[i]['df_cumret']], axis = 1)
                     agg_daily_ret = front_trade_res[i]['daily_ret'] + back_trade_res[i]['daily_ret']
                     agg_cumret = front_trade_res[i]['cumret'] + back_trade_res[i]['cumret']
                         
@@ -392,7 +428,6 @@ def get_calendar_trade_result(df_monthly,
                         'area' : agg_area,
                         'df_premium' : agg_premium,
                         'df_ret' : agg_ret,
-                        'df_cumret' : agg_cum_ret,
                         'daily_ret' : agg_daily_ret,
                         'cumret' : agg_cumret
                         }
@@ -402,7 +437,6 @@ def get_calendar_trade_result(df_monthly,
                 agg_area = pd.Series(0, index = df_front.index)
                 agg_premium = pd.Series(0, index = df_front.index)        
                 agg_ret = pd.Series(0, index = df_front.index)
-                agg_cumret = pd.Series(0, index = df_front.index)
                 agg_daily_ret = pd.Series(0, index = df_front.index)
                 agg_cumret = pd.Series(0, index = df_front.index)
             
@@ -417,15 +451,75 @@ def get_calendar_trade_result(df_monthly,
                                                                     profit_take = profit_take).get('daily_ret'),
                                                                       range(len(agg_trade_res))))
 
+        trade_summary_stopped = list(map(lambda idx : stop_single_trade(agg_trade_res[idx],
+                                                            is_complex_strat = is_complex_strat,
+                                                            profit_take = profit_take,
+                                                            stop_loss = stop_loss).get('df_ret'), range(len(agg_trade_res))))
+        
     # 7. stop 조건까지 적용된 특정 (근월만기, 차월만기) 에 대한 최종 합산 daily return 도출
         try:
             daily_ret = pd.concat(trade_res_stopped, axis = 1).sum(axis = 1)
         except ValueError:
             daily_ret = pd.Series(0, index = front_pivoted.index)
         
-        final_ret_list[front] = daily_ret
+        daily_ret_list[front] = daily_ret
     
-    # 8. 단일만기 trade랑 동일한 구조로 변경
-    daily_ret = pd.DataFrame(final_ret_list).stack().swaplevel(0, 1)
+    # 8. loop 내에서 통계용 summary 도 같이 도출
+
+        for idx in range(len(trade_summary_stopped)):
+            single_trade_res = trade_summary_stopped[idx].dropna()
+            try:
+                single_trade_res_summed = single_trade_res.sum(axis = 1, skipna = False)
+                final_ret = single_trade_res_summed.cumsum().iloc[-1].squeeze()
+
+                # 캘린더는 근월물 + 차월물 합산할때 근월물의 trade_res 에서는 만기 이후 값은 NA
+                # 차월물의 trade_res 에서는 여전히 값 남아 있음
+                # 이때 sum(axis = 1) 에서 skipna = True 그대로 두면 차월물 평가액이 포함되게 됨
+                # 원칙적으로 근월물 만기에 차월물도 같이 청산한다는 가정이므로 근월물 만기 이후의 값은 다 NA 처리 + 삭제
+
+                all_trades[pd.to_datetime(front_trade_entry[idx].get('entry_date'))] = {
+                'trade_ret' : single_trade_res, # 해당 만기 내 개별 trade 들의 각각의 일수익금 df
+                'final_ret' : final_ret , # 해당 만기 내 개별 trade 들의 각각의 최종수익금
+                'trade_drawdown' : single_trade_res_summed.min(),
+                # 해당 만기 내 개별 trade 의 운용 중 최대 평가손실 (손절쳤으면 확정손실)
+                'drawdown_date' : single_trade_res_summed.astype('float64').idxmin()
+                # drawdown 발생한 날 / daily_ret 에서 식별하는 날과 다름 (이건 entry_date)
+                }                
+                
+                number_of_trades = number_of_trades + 1 # 매매 누적수익률이 0이라는건 해당 월물에 매매 한건도 없다는거임
+                if final_ret > 0:
+                    number_of_winners = number_of_winners + 1
+
+            except ValueError:
+                pass
+        
+    # 8. 위에 모든 (근월, 차월) 에 대해서 loop 돌린 daily_ret_list 를 단일만기 trade랑 동일한 구조로 변경
+    daily_ret = pd.DataFrame(daily_ret_list).T.stack()
+
+    # 9. 기타 summary 정리
+    all_trades = pd.DataFrame(all_trades).T
+
+    total_ret = all_trades['final_ret'].sum()
+    avg_ret = all_trades['final_ret'].mean() # 실현수익 기준 평균 금액 수익
+    avg_win = all_trades['final_ret'].loc[all_trades['final_ret'] > 0].mean()
+    avg_loss = all_trades['final_ret'].loc[all_trades['final_ret'] < 0].mean()
+    account_volatility = daily_ret.std() # 계좌총액 기준 금액 변동성
+    strat_mdd = (all_trades['trade_drawdown'].min(), all_trades['drawdown_date'].loc[all_trades['trade_drawdown'].astype('float64').idxmin()])
+    net_liq_mdd = (daily_ret.min(), daily_ret.idxmin()[1])
+
+    summary = {'n' : number_of_trades,
+    'win' : number_of_winners,
+    'total_ret' : total_ret,
+    'avg_ret' : avg_ret,
+    'avg_loss' : avg_loss,
+    'vol' : account_volatility,
+    'single_strat_mdd' : strat_mdd,
+    'net_liq_mdd' : net_liq_mdd
+    }
     
-    return daily_ret
+    final_res = {'daily_ret' : daily_ret,
+    'all_trades' : all_trades,
+    'summary' : summary
+    }
+    
+    return final_res

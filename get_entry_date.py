@@ -37,7 +37,7 @@ class contrarian:
     def __init__(self, df:[pd.DataFrame, pd.Series]):
         self._df = df
 
-    def through_bbands(self, length = 20, std = 2, long_or_short ='b'):
+    def through_bbands(self, l_or_s ='b', length = 20, std = 2):
 
         '''
         long_only = 'l'
@@ -58,14 +58,18 @@ class contrarian:
         cond_short = (self._df['close'] > bbands['bbu_' + str(length) + "_" + str(float(std))]) 
         res.loc[cond_short, 'signal'] = -1
 
-        if long_or_short == 'l':
+        if l_or_s == 'l':
             res = res.mask(res['signal'] == -1, np.nan)
-        elif long_or_short == 's':
+        elif l_or_s == 's':
             res = res.mask(res['signal'] == 1, np.nan)
+        elif l_or_s == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")
 
         return res
     
-    def stoch_rebound(self, k = 5, d = 3, smooth_d = 3, long_or_short ='b'):
+    def stoch_rebound(self, l_or_s ='b', k = 5, d = 3, smooth_d = 3):
 
         '''
         long_only = 'l'
@@ -91,27 +95,50 @@ class contrarian:
         cond_short = cond_short_1 * cond_short_2
         res.loc[cond_short, 'signal'] = -1
 
-        if long_or_short == 'l':
-            res = res.mask(res['signal'] == -1, np.nan)
-        elif long_or_short == 's':
+        if l_or_s == 'l':
+            res = res.mask(res['signal'] == -1, np.nan) 
+        elif l_or_s == 's':
             res = res.mask(res['signal'] == 1, np.nan)
+        elif l_or_s == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")            
 
         return res
 
-    def rsi_rebound(self, length = 14, scalar = 100):
+    def rsi_rebound(self, l_or_s = 'l', length = 14, scalar = 100):
 
         res = pd.DataFrame(index = self._df.index, columns = ['signal'])
         rsi = self.ta.rsi(length = length, scalar = scalar)
-
+        
         # 롱 시그널
+        cond_long_1 = rsi.shift(1) < 30 # 어제 하한선 하회
+        cond_long_2 = rsi > 30 # 오늘 하한선 상회
+        cond_long = cond_long_1 * cond_long_2
+        res.loc[cond_long, 'signal'] = 1
 
-        return None
+        # 숏 시그널
+        cond_short_1 = rsi.shift(1) > 60 # 어제 하한선 하회 # 원래 70인데 k200이 70까지 거의 안 감
+        cond_short_2 = rsi < 60 # 오늘 하한선 상회
+        cond_short = cond_short_1 * cond_short_2
+        res.loc[cond_short, 'signal'] = -1
+
+        if l_or_s == 'l':
+            res = res.mask(res['signal'] == -1, np.nan) 
+        elif l_or_s == 's':
+            res = res.mask(res['signal'] == 1, np.nan)
+        elif l_or_s == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")            
+        return res
+    
 
 # 2. 매매 안 하는 경우 식별
 
 class notrade:
 
-    def vix_curve_invert(notrade_criteria = 0, sma_days = 20):
+    def no_vix_curve_invert(notrade_criteria = 0, sma_days = 20):
 
         df_vix = pd.read_pickle("./working_data/df_vix.pkl")
         res = pd.DataFrame(index = df_vix.index, columns = ['signal'])
@@ -125,7 +152,7 @@ class notrade:
 
         return res
 
-    def vkospi_below_n(low_or_close = 'close', quantile = 0.2):
+    def no_vkospi_below_n(low_or_close = 'close', quantile = 0.2):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
@@ -138,7 +165,7 @@ class notrade:
 
         return res
     
-    def vkospi_above_n(high_or_close = 'close', quantile = 0.8):
+    def no_vkospi_above_n(high_or_close = 'close', quantile = 0.8):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
@@ -152,7 +179,11 @@ class notrade:
         return res
     
 
+# 직전 고점 대비 하락폭 (통산 전고점 대비 drawdown 아님)
     
+
+
+
 # 2. 정추세 지속 시그널
 
 # 3. squeeze 폭발 시그널

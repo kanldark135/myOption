@@ -44,9 +44,6 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 => 이건 그냥 전략을 두개로 쪼개서 접근
 (111의 경우 크레딧 스프레드로 백테스트 한번 + 네이키드 풋으로 백테스트 한번 해서 손익 합산)
 # 캘린더라이즈
-
-ㅁ 당장 해야할것
-
 # 매매 통계 내기
 1) 총 매매 횟수
 2) 매매 승률
@@ -55,12 +52,18 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 5) 손익비 (금액/금액)
 6) 샤프
 
-# number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing
+ㅁ 당장 해야할것
+
+# number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing : 한 trade size : 0 ~ 3까지?...
+    # 현실적으로 매 signal 마다 포지션 들어가는데 그것가지 sizing 하는건 증거금 관리에 어긋남...
+    # 한 주에 해야 할 수량 정하고 signal 마다 나누어서 진입 -> 0 ~ 5(max)
+
+# 병렬처리 코드로 바꾸기 : concurrent.futures / multithreading / asyncio
+
 
 ㅁ 추후 과제
 
-# 백테스팅 함수 async 로 비동기적 실행으로 한꺼번에 여러 결과 가져오기 (중장기 코드 수정 필요)
-
+# 가격은 있는데, 애초에 종가가 븅신같이 거래된 케이스 -> 2021-02-24일 4월물 392.5 풋옵션. 혼자 5.62에 거래...
 # 복리로 투자했으면 어떻게 됬을지? 누적수익률 구하는 함수
 
 
