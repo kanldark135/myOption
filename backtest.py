@@ -180,7 +180,11 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
 
     return res
 
-def stop_single_trade(trade_result : dict, custom_stop = None, is_complex_strat = False, profit_take = 0.5, stop_loss = -2):
+def stop_single_trade(trade_result : dict,
+                    exit_dates = [],
+                    is_complex_strat = False,
+                    profit_take = 0.5,
+                    stop_loss = -2):
     '''
     complex_strat = True 인 경우 (BWB 와 같이 목표손익이 initial credt/debit과 관계 없는 경우)
     profit / loss 값 = 목표손익 포인트
@@ -195,7 +199,7 @@ def stop_single_trade(trade_result : dict, custom_stop = None, is_complex_strat 
     
     cumret = trade_result['cumret']
 
-    if custom_stop == None: # custom stop date list 없으면 손익기준 stop
+    if len(exit_dates) == 0: # custom stop date list 없으면 손익기준 stop
 
         if is_complex_strat == True:
             
@@ -216,7 +220,33 @@ def stop_single_trade(trade_result : dict, custom_stop = None, is_complex_strat 
             liquidate_date = None
     
     else:
-        liquidate_date = cumret.loc[cumret.index.isin(custom_stop)].index[0]
+        try:
+            custom_target = cumret.loc[cumret.index.isin(exit_dates)].index[0]
+        except IndexError:
+            custom_target = pd.Timestamp('9999-99-99') # 해당 만기 내에 exit date 없으면 9999 처리
+
+        if is_complex_strat == True:
+            profit_target = profit_take
+            loss_target = stop_loss
+        else:
+            profit_target = max(np.abs(initial_premium) * profit_take, 0.01)
+            loss_target = min(np.abs(initial_premium) * stop_loss, -0.01)
+            
+        # IndexError 발생상황 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
+        try:
+            stop_date = cumret[
+                (cumret >= profit_target)|
+                (cumret <= loss_target)
+            ].index[0]
+        except IndexError:
+            stop_date = None
+
+        # 최종적으로 profit/loss 기준 익손절과 시그널상 custom exit date 간에 더 빠른 날짜 적용
+
+        try: 
+            liquidate_date = min(custom_target, stop_date)
+        except TypeError: # stop_date 이 None 인 경우
+            liquidate_date = None
 
     df_trade_area = trade_result['area'].loc[:liquidate_date]
     df_net_premium = trade_result['df_premium'].loc[:liquidate_date] 
@@ -237,7 +267,8 @@ def stop_single_trade(trade_result : dict, custom_stop = None, is_complex_strat 
 def get_single_expiry_result(df_pivoted,
                          entry_dates,                        
                          trade_spec,
-                         dte_range = [35,70],                         
+                         dte_range = [35,70],
+                         exit_dates = [],                        
                          is_complex_strat = False,
                          profit_take = 0.5,
                          stop_loss = -2):
@@ -251,11 +282,13 @@ def get_single_expiry_result(df_pivoted,
     trade_res = list(map(lambda trade : get_single_trade_result(df_pivoted, trade), trade_entry))
     #3. 만기보유 df에 stop 조건 적용
     trade_res_stopped = list(map(lambda idx : stop_single_trade(trade_res[idx],
+                                                        exit_dates = exit_dates,
                                                         is_complex_strat = is_complex_strat,
                                                         profit_take = profit_take,
                                                         stop_loss = stop_loss).get('daily_ret'), range(len(trade_res))))
 
     trade_summary_stopped = list(map(lambda idx : stop_single_trade(trade_res[idx],
+                                                        exit_dates = exit_dates,
                                                         is_complex_strat = is_complex_strat,
                                                         profit_take = profit_take,
                                                         stop_loss = stop_loss).get('df_ret'), range(len(trade_res))))
@@ -302,6 +335,7 @@ def get_vertical_trade_result(df,
                      entry_dates, 
                      trade_spec,
                      dte_range = [35,70], 
+                     exit_dates = [],
                      is_complex_strat = False, 
                      profit_take = 0.5, 
                      stop_loss = -2):
@@ -320,6 +354,7 @@ def get_vertical_trade_result(df,
         res = get_single_expiry_result(df, entry_dates = entry_dates,
                                    trade_spec = trade_spec,
                                    dte_range = dte_range,
+                                   exit_dates = exit_dates,
                                    is_complex_strat = is_complex_strat,
                                    profit_take = profit_take,
                                    stop_loss = stop_loss)
@@ -349,6 +384,7 @@ def get_vertical_trade_result(df,
     'win' : number_of_winners,
     'total_ret' : total_ret,
     'avg_ret' : avg_ret,
+    'avg_win' : avg_win,
     'avg_loss' : avg_loss,
     'vol' : account_volatility,
     'single_strat_mdd' : strat_mdd,
@@ -369,6 +405,7 @@ def get_calendar_trade_result(df_monthly,
                               back_spec,
                               front_dte = [14, 35], 
                               back_dte = [28, 77],
+                              exit_dates = [],
                               is_complex_strat = False,
                               profit_take = 2,
                               stop_loss = -2):
@@ -445,16 +482,19 @@ def get_calendar_trade_result(df_monthly,
         agg_trade_res = result_aggregate(front_trade_res, back_trade_res)
 
     # 6. 합산손익에 대한 stop 조건 적용
-        trade_res_stopped = list(map(lambda idx : stop_single_trade(agg_trade_res[idx], 
+        trade_res_stopped = list(map(lambda idx : stop_single_trade(agg_trade_res[idx],
+                                                                    exit_dates = exit_dates,
                                                                     is_complex_strat = is_complex_strat, 
                                                                     stop_loss = stop_loss, 
                                                                     profit_take = profit_take).get('daily_ret'),
-                                                                      range(len(agg_trade_res))))
+                                                                    range(len(agg_trade_res))))
 
         trade_summary_stopped = list(map(lambda idx : stop_single_trade(agg_trade_res[idx],
+                                                            exit_dates = exit_dates,
                                                             is_complex_strat = is_complex_strat,
                                                             profit_take = profit_take,
-                                                            stop_loss = stop_loss).get('df_ret'), range(len(agg_trade_res))))
+                                                            stop_loss = stop_loss).get('df_ret'), 
+                                                            range(len(agg_trade_res))))
         
     # 7. stop 조건까지 적용된 특정 (근월만기, 차월만기) 에 대한 최종 합산 daily return 도출
         try:
@@ -511,6 +551,7 @@ def get_calendar_trade_result(df_monthly,
     'win' : number_of_winners,
     'total_ret' : total_ret,
     'avg_ret' : avg_ret,
+    'avg_win' : avg_win,
     'avg_loss' : avg_loss,
     'vol' : account_volatility,
     'single_strat_mdd' : strat_mdd,

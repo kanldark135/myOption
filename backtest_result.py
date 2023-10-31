@@ -46,11 +46,11 @@ entry_rsi_short = df_k200.contra.rsi_rebound(l_or_s = 's', length = 14, scalar =
 entry_psar_short = df_k200.contra.psar_rebound(l_or_s = 's')
 
 #모멘텀_하락지속??
-noentry_stoch_short = filp(entry_stoch_short)
+noentry_stoch_short = flip(entry_stoch_short)
 noentry_stoch_long = flip(entry_stoch_long)
 
 #변동성 감소 ~ contained
-noentry_stoch_limit = noentry_stoch_short * noentry_stoch_long
+noentry_stoch_limit = flip(entry_stoch_long.combine_first(entry_stoch_short))
 noentry_vix_curve = notrade.no_vix_curve_invert() #3. vix curve not invert & not 하락추세일때 진입
 noentry_vkospi_below_n = notrade.no_vkospi_below_n(quantile = 0.2) # vkospi n보다 낮으면 진입 X
 noentry_vkospi_above_n = notrade.no_vkospi_above_n(quantile = 0.2) # vkospi n보다 높으면 진입 X
@@ -84,12 +84,10 @@ date_neutral6 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noen
 )
 #콜매수계열 진입 (변동성 낮고 / --------------------------------------------------
 date_buy_call = dict(
-date_neutral1 = get_date(df_monthly),
-date_neutral2 = get_date(df_monthly, entry_weekday),
-date_neutral3 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n),
-date_neutral4 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve),
-date_neutral5 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_limit),
-date_neutral6 = get_date(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short)
+alltime = get_date(df_monthly),
+psar = get_date(df_monthly, entry_psar_long),
+rsi = get_date(df_monthly, entry_rsi_long),
+stoch = get_date(df_monthly, entry_stoch_long)
 )
 #----------------------------------------------------
 entry_weekday_w = weekday_entry(df_k200, [3, 4]) # 매주 목/금요일 진입 
@@ -102,11 +100,6 @@ date_neutralw5 = get_date(df_weekly, entry_weekday_w, noentry_vkospi_below_n, no
 date_neutralw6 = get_date(df_weekly, entry_weekday_w, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short),
 )
 #----------------------------------------------------
-date_buy_call = dict(
-    date_buy_call1 = get_date(df_monthly),
-    date_buy_call2 = get_date(df_monthly)
-)
-
 # 풋매수계열 진입 (변동성 낮고 / 하방 변곡점) -------------------------------
 date_buy_put = dict(
     date_buy_put1 = get_date(df_monthly, entry_stoch_short)
@@ -189,17 +182,37 @@ sell_put_back4 = {"P" : [('delta', -0.13, -1)]}
 
 buy_put_front5 = {"P" : [('delta', -0.25, 1), ('delta', -0.20, -1)]}
 sell_put_back5 = {"P" : [('delta', -0.07, -2)]}
-
-
 #%% quick test section
+
+exit_psar_long = get_date(df_monthly, entry_psar_short)
+
 buy_call = backtest.get_vertical_trade_result(df_monthly,
-                                                entry_dates = get_date(entry_stoch_long),
-                                                trade_spec = buy_call20,
-                                                dte_range = [7, 70],
+                                                entry_dates = date_buy_call.get('psar'),
+                                                trade_spec = buy_call10,
+                                                dte_range = [7, 42],
+                                                exit_dates = exit_psar_long,
                                                 is_complex_strat = False,
-                                                profit_take = 2,
+                                                profit_take = 4,
                                                 stop_loss = -0.5)
 
+#%% quick test section
+for key, value in date_buy_call.items():
+    
+    buy_call1 = backtest.get_vertical_trade_result(df_monthly,
+                                                    entry_dates = value,
+                                                    trade_spec = buy_call20,
+                                                    dte_range = [35, 70],
+                                                    is_complex_strat = False,
+                                                    profit_take = 2,
+                                                    stop_loss = -0.5)
+    
+    buy_call1 = backtest.get_vertical_trade_result(df_monthly,
+                                                    entry_dates = value,
+                                                    trade_spec = buy_call20,
+                                                    dte_range = [35, 70],
+                                                    is_complex_strat = False,
+                                                    profit_take = 2,
+                                                    stop_loss = -0.5)
 #%%
 
 putcalendar2 = backtest.get_calendar_trade_result(df_monthly,

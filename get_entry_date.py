@@ -5,6 +5,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import pandas_ta as ta
 
+k200 = pd.read_pickle('./working_data/df_k200.pkl')
+vkospi = pd.read_pickle('./working_data/df_vkospi.pkl')
+vix = pd.read_pickle('./working_data/df_vix.pkl')
 
 def get_date(df, *args):
     dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
@@ -60,7 +63,7 @@ class contrarian:
         if l_or_s == 'l':
             res = res.mask(res['signal'] == -1, np.nan)
         elif l_or_s == 's':
-            res = res.mask(res['signal'] == 1, np.nan)
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
         elif l_or_s == 'b':
             res = res
         else:
@@ -97,7 +100,7 @@ class contrarian:
         if l_or_s == 'l':
             res = res.mask(res['signal'] == -1, np.nan) 
         elif l_or_s == 's':
-            res = res.mask(res['signal'] == 1, np.nan)
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
         elif l_or_s == 'b':
             res = res
         else:
@@ -126,7 +129,7 @@ class contrarian:
         if l_or_s == 'l':
             res = res.mask(res['signal'] == -1, np.nan) 
         elif l_or_s == 's':
-            res = res.mask(res['signal'] == 1, np.nan)
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
         elif l_or_s == 'b':
             res = res
         else:
@@ -143,7 +146,7 @@ class contrarian:
         if l_or_s == 'l':
             res = res.mask(res['signal'] == -1, np.nan) 
         elif l_or_s == 's':
-            res = res.mask(res['signal'] == 1, np.nan)
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
         elif l_or_s == 'b':
             res = res
         else:
@@ -151,6 +154,7 @@ class contrarian:
         return res
 
 # 2. 매매 안 하는 경우 식별
+
 
 class notrade:
 

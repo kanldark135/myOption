@@ -14,6 +14,10 @@
 3. 단독으로 유의한 애들만 추려서 좀 더 overlap 해보기
 
 
+여러 아이디어
+1. 등가매수 + 차월외가2매도의 헤지활용 (음델타 + 숏베가)
+2. 
+
 ㅇentry_strat
     해당 모듈의 목표 : 진입 / 청산의 시점 (return index of each signals) 의 array 도출하는 것
 
