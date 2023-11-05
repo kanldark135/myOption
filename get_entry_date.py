@@ -9,7 +9,7 @@ k200 = pd.read_pickle('./working_data/df_k200.pkl')
 vkospi = pd.read_pickle('./working_data/df_vkospi.pkl')
 vix = pd.read_pickle('./working_data/df_vix.pkl')
 
-def get_date(df, *args):
+def get_date_intersect(df, *args):
     dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
     dummy['signal'] = 1
     for i in args:
@@ -18,6 +18,13 @@ def get_date(df, *args):
     res = dummy.loc[dummy['signal'] == 1].index
     return res
 
+def get_date_union(df, *args):
+    dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
+    for i in args:
+        dummy = dummy.combine_first(i.loc[dummy.index])
+
+    res = dummy.loc[dummy['signal'] == 1].index
+    return res    
 # 특정 요일 진입
 
 def weekday_entry(df, weekdays = [3]):
@@ -185,7 +192,7 @@ class notrade:
 
         return res
     
-    def no_vkospi_above_n(high_or_close = 'close', quantile = 0.8):
+    def no_vkospi_above_n(quantile = 0.8, high_or_close = 'close'):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])

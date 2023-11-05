@@ -4,8 +4,6 @@ import numpy as np
 import option_calc as calc
 import compute
 from datetime import datetime
-import sql
-import concurrent.futures
 
 #%% 
 # #1. 데이터 불러오기 sqlite db
@@ -24,10 +22,58 @@ import concurrent.futures
 # df_raw = pd.read_sql(query_select, conn)
 # conn.close()
 
+
+#%%
+# # 테스트용 예시 : 2023-07-13
+# from get_entry_date import get_date, weekday_entry
+
+# df = pd.read_pickle('./working_data/df_monthly.pkl')
+# df_k200 = pd.read_pickle('./working_data/df_k200.pkl')
+
+# grouped = df.groupby('expiry')
+# all_expiry = grouped.groups.keys()
+
+# dte_range = [35, 70]
+
+# is_complex_strat = False
+# profit_take = 1
+# stop_loss = -0.5
+ 
+# trade_spec = {'C' : [('number', 0, 1), ('number', 2.5, -1)]}
+# entry_dates = get_date(df, weekday_entry(df_k200, [0, 4]))
+
+# sample = grouped.get_group('2020-03-12')
+# sample_pivoted = sample.pipe(get_pivot_table)
+
+# trade_entry = create_trade_entries(df_pivoted = sample_pivoted, 
+#                                     entry_dates = entry_dates, 
+#                                     trade_spec = trade_spec,
+#                                     dte_range = dte_range)
+
+# trade_res = list(map(lambda trade : get_single_trade_result(sample_pivoted, trade), trade_entry))
+# trade_res_stopped = list(map(lambda result : stop_single_trade(result, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss), trade_res))
+
+# ret = get_single_expiry_result(df_pivoted = sample_pivoted, 
+#                     entry_dates = entry_dates, 
+#                     trade_spec = trade_spec,
+#                     dte_range = dte_range,                       
+#                     is_complex_strat = is_complex_strat, 
+#                     profit_take = profit_take, 
+#                     stop_loss = stop_loss)
+
+# result = get_vertical_trade_result(sample,
+#                     entry_dates = entry_dates,
+#                     trade_spec = trade_spec,
+#                     dte_range = dte_range,                        
+#                     is_complex_strat = is_complex_strat, 
+#                     profit_take = profit_take, 
+#                     stop_loss = stop_loss
+#                     )
+
+
 #%% general 함수 : option function 으로 옮길것
 
 # raw data 에서 옵션 pivot_table 구하는 함수
-
 
 def get_pivot_table(raw_df, values = ['adj_price', 'iv_interp', 'delta']):
 
@@ -120,7 +166,7 @@ def create_trade_entries(df_pivoted,
     try:
         res = res.tolist()
     except AttributeError: # 해당 만기에 거래 1도 없는경우 dummy trade 생성해서 밑에서 0 trade로 환원
-        res = {'entry_date' : '9999-99-99', 'trade' : [], 'contract' : 0}
+        res = {'entry_date' : '9999-01-01', 'trade' : [], 'contract' : 0}
 
     return res
 
@@ -132,51 +178,30 @@ def get_single_trade_result(df_pivoted, single_trade: dict):
     contract : list
     '''
     try:
-        df_trade_area = df_pivoted.loc[single_trade['entry_date'] : , single_trade['trade']]
+        entry_date = single_trade['entry_date']
+        df_trade_area = df_pivoted.loc[entry_date : , single_trade['trade']]
         df_net_premium = df_trade_area.multiply(np.negative(single_trade['contract']), axis = 1)
-        df_ret = (df_net_premium.shift(1) - df_net_premium).fillna(0)
+        df_ret = - df_net_premium.diff(1).fillna(0)
         daily_ret = df_ret.sum(axis = 1)
         cumret = df_ret.cumsum().sum(axis = 1)
 
-        res = {
-            'area' : df_trade_area,
-            'df_premium' : df_net_premium,
-            'df_ret' : df_ret,
-            'daily_ret' : daily_ret,
-            'cumret' : cumret
-        }
-    # 트레이드가 아예 없는 경우 발생하는 에러 처리
-    except (IndexError, TypeError):
+    # 트레이드가 아예 없는 경우 발생하는 에러 처리 (IndexError TypeError)
+    # 옛날데이터의 경우 행사가가 없어서 산정해놓은 행사가에 매칭되는 자료가 없는 경우 (Keyerror) -> 그냥 안한 셈 치기
+
+    except (IndexError, TypeError, KeyError):
         df_trade_area = pd.Series(0, index = df_pivoted.index)
         df_net_premium = pd.Series(0, index = df_pivoted.index)        
         df_ret = pd.Series(0, index = df_pivoted.index)
         daily_ret = pd.Series(0, index = df_pivoted.index)
         cumret = pd.Series(0, index = df_pivoted.index)
 
-        res = {
-            'area' : df_trade_area,
-            'df_premium' : df_net_premium,
-            'df_ret' : df_ret,
-            'daily_ret' : daily_ret,
-            'cumret' : cumret
-        }
-        
-    # 옛날데이터의 경우 행사가가 없어서 산정해놓은 행사가에 매칭되는 자료가 없는 경우 -> 그냥 안한 셈 치기
-
-    except KeyError:
-        df_trade_area = pd.Series(0, index = df_pivoted.index)
-        df_net_premium = pd.Series(0, index = df_pivoted.index)        
-        df_ret = pd.Series(0, index = df_pivoted.index)
-        daily_ret = pd.Series(0, index = df_pivoted.index)
-        cumret = pd.Series(0, index = df_pivoted.index)
-
-        res = {
-            'area' : df_trade_area,
-            'df_premium' : df_net_premium,
-            'df_ret' : df_ret,
-            'daily_ret' : daily_ret,
-            'cumret' : cumret
-        }
+    res = {
+        'area' : df_trade_area,
+        'df_premium' : df_net_premium,
+        'df_ret' : df_ret,
+        'daily_ret' : daily_ret,
+        'cumret' : cumret
+    }
 
     return res
 
@@ -199,16 +224,11 @@ def stop_single_trade(trade_result : dict,
     
     cumret = trade_result['cumret']
 
-    if len(exit_dates) == 0: # custom stop date list 없으면 손익기준 stop
+    if len(exit_dates) == 0 : # custom stop date list 없으면 손익기준 stop
+        
+        profit_target = profit_take if is_complex_strat == True else max(np.abs(initial_premium) * profit_take, 0.01)
+        loss_target = stop_loss if is_complex_strat == True else min(np.abs(initial_premium) * stop_loss, -0.01)
 
-        if is_complex_strat == True:
-            
-            profit_target = profit_take
-            loss_target = stop_loss
-        else:
-            profit_target = max(np.abs(initial_premium) * profit_take, 0.01)
-            loss_target = min(np.abs(initial_premium) * stop_loss, -0.01)
-            
         # IndexError 발생상황 1 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
         try:
             liquidate_date = cumret[
@@ -217,20 +237,16 @@ def stop_single_trade(trade_result : dict,
             ].index[0]
 
         except IndexError:
-            liquidate_date = None
+            liquidate_date = pd.Timestamp('2099-01-01')
     
     else:
         try:
             custom_target = cumret.loc[cumret.index.isin(exit_dates)].index[0]
         except IndexError:
-            custom_target = pd.Timestamp('9999-99-99') # 해당 만기 내에 exit date 없으면 9999 처리
+            custom_target = None # 해당 만기 내에 exit date 없으면 9999 처리
 
-        if is_complex_strat == True:
-            profit_target = profit_take
-            loss_target = stop_loss
-        else:
-            profit_target = max(np.abs(initial_premium) * profit_take, 0.01)
-            loss_target = min(np.abs(initial_premium) * stop_loss, -0.01)
+        profit_target = profit_take if is_complex_strat else max(np.abs(initial_premium) * profit_take, 0.01)
+        loss_target = stop_loss if is_complex_strat else min(np.abs(initial_premium) * stop_loss, -0.01)
             
         # IndexError 발생상황 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
         try:
@@ -246,8 +262,17 @@ def stop_single_trade(trade_result : dict,
         try: 
             liquidate_date = min(custom_target, stop_date)
         except TypeError: # stop_date 이 None 인 경우
-            liquidate_date = None
+            def isnone(a, b):
+                if a is None:
+                    if b is None:
+                        return pd.Timestamp('2099-01-01')
+                    elif b is not None:
+                        return b
+                else:
+                    return a
 
+            liquidate_date = isnone(custom_target, stop_date)
+                
     df_trade_area = trade_result['area'].loc[:liquidate_date]
     df_net_premium = trade_result['df_premium'].loc[:liquidate_date] 
     df_ret = trade_result['df_ret'].loc[:liquidate_date]
