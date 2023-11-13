@@ -116,8 +116,8 @@ date_neutralw6 = get_date_intersect(df_weekly, entry_weekday_w, noentry_vkospi_b
 entry0 = get_date_intersect(df_monthly)
 entry1 = get_date_intersect(df_monthly, entry_psar_long)
 entry2 = get_date_union(df_monthly, entry_psar_long, entry_stoch_long)
-entry3 = get_date_intersect(df_monthly, entry_psar_long, notrade.no_vkospi_above_n(0.8))
-exit = get_date_intersect(df_monthly, entry_psar_short)
+entry3 = get_date_intersect(df_monthly, notrade.no_vkospi_above_n(0.2))
+exit = get_date_intersect(df_monthly, entry_psar_long)
 
 # #만기까지 홀딩 안하고 전날 손익불문 강제 청산 반영
 # exit_before_expiry = pd.to_datetime((df_monthly['expiry'] - pd.DateOffset(days = 1)).drop_duplicates().values)
@@ -126,13 +126,13 @@ exit = get_date_intersect(df_monthly, entry_psar_short)
 dte_range = [35, 70]
 
 quickres1 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = entry0,
-                                              trade_spec = sell_call_credit[2],
+                                              entry_dates = entry3,
+                                              trade_spec = buy_put_backspread[4],
                                               dte_range = dte_range,
                                               exit_dates = [],
-                                              is_complex_strat = False,
-                                              profit_take = 0.5,
-                                              stop_loss = -4)
+                                              is_complex_strat = True,
+                                              profit_take = 8,
+                                              stop_loss = -1.5)
 
 #%% long call
 
@@ -369,6 +369,7 @@ buy_put_backspread =[
 sell_put_front = {'P': [('delta', -0.4, -1)]}
 buy_put_back = {'P': [('delta', -0.2, 2)]} 
 
+#%%
 res_put = dict()
 
 for key, values in date_buy_put.items():
@@ -420,14 +421,15 @@ for key, values in date_buy_put.items():
                                                     stop_loss = -1.5)
                 res_put_backspread[f"{key}_{trade}_{dte}_{profit_target}"] = res
 
+#%% 
 res_put_calendar = dict()
 
 for key, values in date_buy_put.items():
         for profit_target in [1, 2, 3, 4]:
             res  = backtest.get_calendar_trade_result(df_monthly,
                                                     entry_dates = values,
-                                                    front_spec = sell_call_front,
-                                                    back_spec = buy_call_back,
+                                                    front_spec = sell_put_front,
+                                                    back_spec = buy_put_back,
                                                     front_dte = [14, 35],
                                                     back_dte = [28, 77],
                                                     exit_dates = [],
