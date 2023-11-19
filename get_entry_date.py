@@ -1,4 +1,3 @@
-
 import FinanceDataReader as fdr
 import numpy as np
 import pandas as pd
@@ -179,7 +178,7 @@ class notrade:
 
         return res
 
-    def no_vkospi_below_n(quantile = 0.2, low_or_close = 'close', ):
+    def no_vkospi_below_n(quantile = 0.2, low_or_close = 'close'):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])

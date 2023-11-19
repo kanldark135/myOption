@@ -27,17 +27,25 @@ def flip(df):
     res['signal'] = np.where(res['signal'] == 1, np.nan, 1)
     return res
 
-def get_summary(df_result):
+def sum(df_result):
     res = df_result['summary']
     return res
 
-def get_cumsum(df_result):
-    res = df_result['daily_ret'].cumsum()
+def cum(df_result):
+    res = df_result['daily_ret'].cumsum().plot()
     return res
 
-def get_sortvalue(df_result):
+def table(df_result):
     res = df_result['all_trades'].sort_values('final_ret', ascending = False)
     return res
+
+def returns(df_result):
+    res = df_result['daily_ret']
+    res.to_csv("./daily_ret.csv")
+
+def all(df_result):
+    returns(df_result)
+    return sum(df_result), table(df_result), print(cum(df_result))
 
 # entry_date : 온갖 방법으로 entry date 도출
 
@@ -114,25 +122,26 @@ date_neutralw6 = get_date_intersect(df_weekly, entry_weekday_w, noentry_vkospi_b
 #%% finalized quick
 
 entry0 = get_date_intersect(df_monthly)
-entry1 = get_date_intersect(df_monthly, entry_psar_long)
-entry2 = get_date_union(df_monthly, entry_psar_long, entry_stoch_long)
-entry3 = get_date_intersect(df_monthly, notrade.no_vkospi_above_n(0.2))
-exit = get_date_intersect(df_monthly, entry_psar_long)
+entry1 = get_date_intersect(df_monthly, notrade.no_vix_curve_invert(), weekday_entry(df_k200, [0, 4]))
 
-# #만기까지 홀딩 안하고 전날 손익불문 강제 청산 반영
+entry2 = get_date_intersect(df_monthly, entry_psar_short, notrade.no_vkospi_above_n(0.8))
+entry3 = get_date_intersect(df_monthly, notrade.no_vkospi_above_n(0.8))
+exit = get_date_intersect(df_monthly, entry_psar_short, entry_bbands_short)
+
+#만기까지 홀딩 안하고 전날 손익불문 강제 청산 반영
 # exit_before_expiry = pd.to_datetime((df_monthly['expiry'] - pd.DateOffset(days = 1)).drop_duplicates().values)
 # exit = pd.to_datetime(np.sort(np.concatenate([exit, exit_before_expiry])))
 
-dte_range = [35, 70]
+dte_range = [42, 70]
 
 quickres1 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = entry3,
-                                              trade_spec = buy_put_backspread[4],
+                                              entry_dates = entry1,
+                                              trade_spec = buy_put[2],
                                               dte_range = dte_range,
                                               exit_dates = [],
-                                              is_complex_strat = True,
-                                              profit_take = 8,
-                                              stop_loss = -1.5)
+                                              is_complex_strat = False,
+                                              profit_take = 0.5,
+                                              stop_loss = -2)
 
 #%% long call
 
@@ -174,6 +183,7 @@ buy_call_back = {'C' : [('delta', 0.2, 2)]}
 
 # 기본적으로 콜 skew 누워서 불리 > skew 따라 이득보려면 아예 매수부터 외가에 구축해야함
 
+#%% 
 
 res_call = dict()
 
@@ -246,6 +256,7 @@ for key, values in date_buy_call.items():
 # 콜매도계열 진입
 
 date_sell_call = dict(
+alltime = get_date_intersect(df_monthly),
 bbands = get_date_intersect(df_monthly, entry_bbands_short),
 bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.no_vkospi_below_n(0.2)),
 psar = get_date_intersect(df_monthly, entry_psar_short),
@@ -277,6 +288,15 @@ sell_call_ratio = [
     {'C' : [('delta', 0.3, 1), ('delta', 0.15, -3)]}
 ]
 
+sell_call_111 = [
+    {'C' : [('delta', 0.5, 1), ('delta', 0.46, -1), ('delta', 0.15, -1)]},
+    {'C' : [('delta', 0.4, 1), ('delta', 0.36, -1), ('delta', 0.125, -1)]},
+    {'C' : [('delta', 0.3, 1), ('delta', 0.26, -1), ('delta', 0.10, -1)]},
+    {'C' : [('delta', 0.25, 1), ('delta', 0.20, -1), ('delta', 0.08, -1)]},
+    {'C' : [('delta', 0.2, 1), ('delta', 0.15, -1), ('delta', 0.07, -1)]}
+]
+
+#%%
 res_call = dict()
 
 for key, values in date_sell_call.items():
@@ -327,6 +347,24 @@ for key, values in date_sell_call.items():
                                                     stop_loss = stop_loss)
                 res_call_ratio[f"{key}_{trade}_{dte}_{stop_loss}"] = res
 
+#%%
+res_call_111 = dict()
+
+for key, values in date_sell_call.items():
+    for trade in sell_call_111:
+        for dte in [[7, 35], [21, 49], [42, 70]]:
+            for stop_loss in [-1, -2, -3, -4]:
+                res  = backtest.get_vertical_trade_result(df_monthly,
+                                                    entry_dates = values,
+                                                    trade_spec = trade,
+                                                    dte_range = dte,
+                                                    exit_dates = [],
+                                                    is_complex_strat = True,
+                                                    profit_take = 1,
+                                                    stop_loss = stop_loss)
+                res_call_111[f"{key}_{trade}_{dte}_{stop_loss}"] = res   
+
+
 
 #%%
 
@@ -347,7 +385,7 @@ stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.no_
 
 buy_put = [{'P': [('delta', -0.4, 1)]},
             {'P': [('delta', -0.3, 1)]},
-            {'P': [('delta', -0.2, 1)]},
+            {'P': [('delta', -0.2, -1)]},
             {'P': [('delta', -0.1, 1)]}
 ]
 
