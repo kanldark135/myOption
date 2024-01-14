@@ -24,8 +24,7 @@ from datetime import datetime
 
 
 #%%
-# # 테스트용 예시 : 2023-07-13
-# from get_entry_date import get_date, weekday_entry
+# import get_entry_date
 
 # df = pd.read_pickle('./working_data/df_monthly.pkl')
 # df_k200 = pd.read_pickle('./working_data/df_k200.pkl')
@@ -33,22 +32,27 @@ from datetime import datetime
 # grouped = df.groupby('expiry')
 # all_expiry = grouped.groups.keys()
 
-# dte_range = [35, 70]
-
+# trade_spec = {'P' : [('delta', -0.2, -1)]}
+# dte_range = [42, 70]
 # is_complex_strat = False
-# profit_take = 1
-# stop_loss = -0.5
- 
-# trade_spec = {'C' : [('number', 0, 1), ('number', 2.5, -1)]}
-# entry_dates = get_date(df, weekday_entry(df_k200, [0, 4]))
+# profit_take = 0.5
+# stop_loss = -2
+
+# entry_cond1 = get_entry_date.weekday_entry(df_k200, [0, 4])
+# entry_cond2 = df_k200.trend.psar_trend('l')
+# entry_dates = get_entry_date.get_date_intersect(df, entry_cond1, entry_cond2)
+
+# exit_cond1 = df_k200.contra.psar_rebound('s')
+# exit_dates = get_entry_date.get_date_intersect(df, exit_cond1)
 
 # sample = grouped.get_group('2020-03-12')
 # sample_pivoted = sample.pipe(get_pivot_table)
 
-# trade_entry = create_trade_entries(df_pivoted = sample_pivoted, 
-#                                     entry_dates = entry_dates, 
-#                                     trade_spec = trade_spec,
-#                                     dte_range = dte_range)
+# #1.
+# trades = create_trade_entries(sample_pivoted, entry_dates, trade_spec)
+
+# #2.
+# res = get_single_trade_result(sample_pivoted, trades[1])
 
 # trade_res = list(map(lambda trade : get_single_trade_result(sample_pivoted, trade), trade_entry))
 # trade_res_stopped = list(map(lambda result : stop_single_trade(result, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss), trade_res))
@@ -224,55 +228,29 @@ def stop_single_trade(trade_result : dict,
     
     cumret = trade_result['cumret']
 
-    if len(exit_dates) == 0 : # custom stop date list 없으면 손익기준 stop
+    # IndexError 발생상황 : 해당 월물 기간동안 Hard Stop 없는경우 -> 없는걸로 처리
+    try:
+        hard_stop = cumret.loc[cumret.index.isin(exit_dates)].index[0]
+    except IndexError:
+        hard_stop = pd.Timestamp('2099-01-01')
+
+    profit_target = profit_take if is_complex_strat else max(np.abs(initial_premium) * profit_take, 0.01)
+    loss_target = stop_loss if is_complex_strat else min(np.abs(initial_premium) * stop_loss, -0.01)
         
-        profit_target = profit_take if is_complex_strat == True else max(np.abs(initial_premium) * profit_take, 0.01)
-        loss_target = stop_loss if is_complex_strat == True else min(np.abs(initial_premium) * stop_loss, -0.01)
+    # IndexError 발생상황 : 중간청산이 안 되는경우 (익손절 안되고 만기까지 가는 경우)
 
-        # IndexError 발생상황 1 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
-        try:
-            liquidate_date = cumret[
-                (cumret >= profit_target)|
-                (cumret <= loss_target)
-            ].index[0]
+    try:
+        stop_date = cumret[
+            (cumret >= profit_target)|
+            (cumret <= loss_target)
+        ].index[0]
+    except IndexError:
+        stop_date = pd.Timestamp('2099-01-01')
 
-        except IndexError:
-            liquidate_date = pd.Timestamp('2099-01-01')
+    # 최종적으로 profit/loss 기준 익손절과 시그널상 custom exit date 간에 더 빠른 날짜 적용
     
-    else:
-        try:
-            custom_target = cumret.loc[cumret.index.isin(exit_dates)].index[0]
-        except IndexError:
-            custom_target = None # 해당 만기 내에 exit date 없으면 9999 처리
+    liquidate_date = np.nanmin([hard_stop, stop_date]) 
 
-        profit_target = profit_take if is_complex_strat else max(np.abs(initial_premium) * profit_take, 0.01)
-        loss_target = stop_loss if is_complex_strat else min(np.abs(initial_premium) * stop_loss, -0.01)
-            
-        # IndexError 발생상황 : 중간청산이 안 되는경우 (익절 또는 손절 안되고 그대로 만기까지 가는 경우) : liquidate_date = 만기로 설정
-        try:
-            stop_date = cumret[
-                (cumret >= profit_target)|
-                (cumret <= loss_target)
-            ].index[0]
-        except IndexError:
-            stop_date = None
-
-        # 최종적으로 profit/loss 기준 익손절과 시그널상 custom exit date 간에 더 빠른 날짜 적용
-
-        try: 
-            liquidate_date = min(custom_target, stop_date)
-        except TypeError: # stop_date 이 None 인 경우
-            def isnone(a, b):
-                if a is None:
-                    if b is None:
-                        return pd.Timestamp('2099-01-01')
-                    elif b is not None:
-                        return b
-                else:
-                    return a
-
-            liquidate_date = isnone(custom_target, stop_date)
-                
     df_trade_area = trade_result['area'].loc[:liquidate_date]
     df_net_premium = trade_result['df_premium'].loc[:liquidate_date] 
     df_ret = trade_result['df_ret'].loc[:liquidate_date]
@@ -302,9 +280,9 @@ def get_single_expiry_result(df_pivoted,
     각 매매의 결과 (=result_list) list / 전부 합산한 해당 만기의 일일손익 output'''
 
     #1. 매매 엔트리 생성
-    trade_entry = create_trade_entries(df_pivoted, entry_dates, trade_spec, dte_range)
+    trade_entries = create_trade_entries(df_pivoted, entry_dates, trade_spec, dte_range)
     #2. 엔트리별로 만기까지 보유시의 df 생성
-    trade_res = list(map(lambda trade : get_single_trade_result(df_pivoted, trade), trade_entry))
+    trade_res = list(map(lambda trade : get_single_trade_result(df_pivoted, trade), trade_entries))
     #3. 만기보유 df에 stop 조건 적용
     trade_res_stopped = list(map(lambda idx : stop_single_trade(trade_res[idx],
                                                         exit_dates = exit_dates,
@@ -334,7 +312,7 @@ def get_single_expiry_result(df_pivoted,
             single_trade_res_summed = single_trade_res.sum(axis = 1, skipna = False)
             final_ret = single_trade_res_summed.cumsum().iloc[-1].squeeze()
 
-            all_trades[pd.to_datetime(trade_entry[idx].get('entry_date'))] = {
+            all_trades[pd.to_datetime(trade_entries[idx].get('entry_date'))] = {
             'trade_ret' : single_trade_res, # 해당 만기 내 개별 trade 들의 각각의 일수익금 df
             'final_ret' : final_ret, # 해당 만기 내 개별 trade 들의 각각의 최종수익금
             'trade_drawdown' : single_trade_res_summed.min(),

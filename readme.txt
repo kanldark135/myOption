@@ -6,25 +6,13 @@
     TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 / 직접 쓰기 불편함
     FinanceDataReader
 
-
-1. 개별 지표에 대해 전략 돌려 보고
-2. 승률 내지 수익률에 유의미한 지표들만 추려서 재차 조합
-
-
-여러 아이디어
-1. 등가매수 + 차월외가2매도의 헤지활용 (음델타 + 숏베가)
-2. 
-
 ㅇentry_strat
     해당 모듈의 목표 : 진입 / 청산의 시점 (return index of each signals) 의 array 도출하는 것
 
-psar
+PSAR (트렌드 식별) + 변동성 지표 (현재 트렌드가 리얼 트렌드 or 박스권 등락 연출될 가능성 높은지)
+>> 박스권 식별 지표 같이
+예) PSAR 상승 + 볼밴 대폭 축소되있는 상황 -> Breakout 가능성 높음
 
-The SAR dots beneath the current market price point to an uptrend;
-The SAR dots above the market price point to a downtrend;
-Enter a position when the price penetrates the SAR – buy if the price crosses above the SAR and sell if the price crosses below the SAR;
-You stop and reverse your position when the price crosses the SAR again.
-You can aim to improve your Parabolic SAR strategy by using other indicators to aid your decision-making. For example, it can be useful to use a different trend indicator, such as the ADX, to establish that you are actually in a trending market, as opposed to a sideways moving market. It's important to note that the Parabolic SAR is not designed to work in a sideways market.
 
 ㅁ완료
     변동성 short 전략 진입식별
@@ -42,9 +30,7 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
 
 ㅁ추후 과제
 
-
-
-ㅇstrat_backtest.py
+ㅇbacktest.py
 
 ㅁ완료
     # dist_from_atm 을 atm 대비 벌어진 값으로 설정되게 -> 완료 V
@@ -68,7 +54,7 @@ You can aim to improve your Parabolic SAR strategy by using other indicators to 
     6) 샤프
 
 ㅁ 당장 해야할것
-
+    # hard stop 적용
     # number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing : 한 trade size : 0 ~ 3까지?...
         # 현실적으로 매 signal 마다 포지션 들어가는데 그것가지 sizing 하는건 증거금 관리에 어긋남...
         # 한 주에 해야 할 수량 정하고 signal 마다 나누어서 진입 -> 0 ~ 5(max)

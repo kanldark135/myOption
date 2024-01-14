@@ -56,7 +56,7 @@ def get_pivot_chain_within_group(raw_df, values = ['adj_price', 'iv_interp', 'de
 #1. 스토캐스틱 과열 기준 진입일
 import get_entry_date
 k200 = pd.read_pickle("./data_pickle/k200.pkl")
-ta_based_entry = get_entry_date.contrarian(k200)
+ta_based_entry = get_entry_date.MyContrarian(k200)
 stoch = ta_based_entry.stoch_rebound(k = 5, d = 3, smooth_d = 3)
 entry_dates_stoch = stoch.loc[stoch['signal'] == 1].index
 

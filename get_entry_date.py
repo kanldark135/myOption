@@ -1,3 +1,5 @@
+#%% 유틸리티 함수
+
 import FinanceDataReader as fdr
 import numpy as np
 import pandas as pd
@@ -8,8 +10,9 @@ k200 = pd.read_pickle('./working_data/df_k200.pkl')
 vkospi = pd.read_pickle('./working_data/df_vkospi.pkl')
 vix = pd.read_pickle('./working_data/df_vix.pkl')
 
-def get_date_intersect(df, *args):
-    dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
+def get_date_intersect(option_df, *args):
+    ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
+    dummy = pd.DataFrame(index = option_df.index.unique(), columns = ['signal'])
     dummy['signal'] = 1
     for i in args:
         dummy = dummy.multiply(i)
@@ -17,18 +20,23 @@ def get_date_intersect(df, *args):
     res = dummy.loc[dummy['signal'] == 1].index
     return res
 
-def get_date_union(df, *args):
-    dummy = pd.DataFrame(index = df.index.unique(), columns = ['signal'])
+def get_date_union(option_df, *args):
+    ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
+    dummy = pd.DataFrame(index = option_df.index.unique(), columns = ['signal'])
     for i in args:
         dummy = dummy.combine_first(i.loc[dummy.index])
 
     res = dummy.loc[dummy['signal'] == 1].index
+
     return res    
+
+#%% 
+
 # 특정 요일 진입
 
-def weekday_entry(df, weekdays = [3]):
-    
-    df_idx = df.index.unique()
+def weekday_entry(option_df, weekdays = [3]):
+    ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''  
+    df_idx = option_df.index.unique()
     res = pd.DataFrame(index = df_idx, columns = ['signal'])
     res['signal'] = np.nan
 
@@ -40,7 +48,7 @@ def weekday_entry(df, weekdays = [3]):
 # 1. 과열 침체 역방향 시그널
 
 @pd.api.extensions.register_dataframe_accessor('contra')
-class contrarian:
+class MyContrarian:
 
     def __init__(self, df:[pd.DataFrame, pd.Series]):
         self._df = df
@@ -117,6 +125,12 @@ class contrarian:
 
     def rsi_rebound(self, l_or_s = 'l', length = 14, scalar = 100):
 
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
         res = pd.DataFrame(index = self._df.index, columns = ['signal'])
         rsi = self._df.ta.rsi(length = length, scalar = scalar)
         
@@ -144,6 +158,12 @@ class contrarian:
         
     def psar_rebound(self, l_or_s = 'l'):
 
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
         psar = self._df.ta.psar()
         psar = psar.rename(columns = {'PSARl_0.02_0.2' : 'l', 'PSARs_0.02_0.2' : 's', 'PSARr_0.02_0.2' : 'signal'})    
         res = psar['signal'].mask((psar['s'].notna())&(psar['signal'] == 1), -1).to_frame()
@@ -159,9 +179,7 @@ class contrarian:
             raise ValueError("l_or_s must be l, s or b")            
         return res
 
-# 2. 매매 안 하는 경우 식별
-
-
+# 2. 매매 안 하는 상황
 class notrade:
 
     def no_vix_curve_invert(notrade_criteria = 0, sma_days = 20):
@@ -208,11 +226,39 @@ class notrade:
 # 직전 고점 대비 하락폭 (통산 전고점 대비 drawdown 아님)
     
 
-
-
 # 2. 정추세 지속 시그널
 
-# 3. squeeze 폭발 시그널
+@pd.api.extensions.register_dataframe_accessor("trend")
+class MyTrend:
+    def __init__(self, df):
+        self.df = df
+
+    def psar_trend(self, l_or_s = 'b'):
+        
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
+        psar = self.df.ta.psar()
+        psar = psar.rename(columns = {'PSARl_0.02_0.2' : 'l', 'PSARs_0.02_0.2' : 's', 'PSARr_0.02_0.2' : 'signal'})
+        
+        if l_or_s == "l":
+            res = psar[['l']].mask(psar['l'].notna(), 1).rename(columns = {"l" : "signal"})
+        
+        elif l_or_s == "s":
+            res = psar[['s']].mask(psar['s'].notna(), 1).rename(columns = {'s' : 'signal'})
+
+        else:
+            res = pd.DataFrame(data = np.where(psar['l'].notna(), 1, -1), index = psar.index, columns = ['signal'])
+
+        return res
+    
+
+# 3. 돌파매매 시그널
+
+
 
 # 4. 주가 / 지표 다이버전스
 
