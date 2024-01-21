@@ -31,12 +31,12 @@ def sum(df_result):
     return res
 
 def cum(df_result):
-    res = df_result['daily_ret'].cumsum()
+    res = df_result['daily_ret'].groupby(level = 1).sum().cumsum()
     res.plot()
     return res
 
 def dd(df_result):
-    res = df_result['daily_ret'].cumsum() - df_result['daily_ret'].cumsum().cummax()
+    res = cum(df_result) - cum(df_result).cummax()
     res.plot()
     return res
 
@@ -143,39 +143,39 @@ dte_range = [42, 70]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry1,
-                                              trade_spec = sell_put[2],
+                                              trade_spec = sell_put[0],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               is_complex_strat = False,
                                               profit_take = 0.5,
-                                              stop_loss = -2)
+                                              stop_loss = -1)
 
 res_psar_up = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry2,
-                                              trade_spec = sell_put[2],
+                                              trade_spec = sell_put[0],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               is_complex_strat = False,
                                               profit_take = 0.5,
-                                              stop_loss = -2)
+                                              stop_loss = -1)
 
 res_psar_up_novix20 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry3,
-                                              trade_spec = sell_put[2],
+                                              trade_spec = sell_put[0],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               is_complex_strat = False,
                                               profit_take = 0.5,
-                                              stop_loss = -2)
+                                              stop_loss = -1)
 
 res_psar_up_novix20_noinvert = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry4,
-                                              trade_spec = sell_put[2],
+                                              trade_spec = sell_put[0],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               is_complex_strat = False,
                                               profit_take = 0.5,
-                                              stop_loss = -2)
+                                              stop_loss = -1)
 
 
 
