@@ -54,7 +54,11 @@ PSAR (트렌드 식별) + 변동성 지표 (현재 트렌드가 리얼 트렌드
     6) 샤프
 
 ㅁ 당장 해야할것
-    # hard stop 적용
+    # stop 구현
+     1) 별도 조건으로 외부에서 정의해놓은 stop timetable에 stop (기술적 지표 등등) -> 구현
+     2) DTE 기반의 stop (DTE n에서 자동 stop)
+
+
     # number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing : 한 trade size : 0 ~ 3까지?...
         # 현실적으로 매 signal 마다 포지션 들어가는데 그것가지 sizing 하는건 증거금 관리에 어긋남...
         # 한 주에 해야 할 수량 정하고 signal 마다 나누어서 진입 -> 0 ~ 5(max)
