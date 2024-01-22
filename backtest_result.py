@@ -104,7 +104,6 @@ noentry_vkospi_above_n = notrade.no_vkospi_above_n(quantile = 0.2) # vkospi n보
 entry_vkospi_below_n = flip(notrade.no_vkospi_below_n(0.2))
 
 
-
 #콜매수계열 진입 (변동성 낮고 / --------------------------------------------------
 date_buy_call = dict(
 alltime = get_date_intersect(df_monthly),
@@ -312,7 +311,7 @@ dte_range = [42, 70]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry1,
-                                              trade_spec = sell_put[0],
+                                              trade_spec = sell_put[2],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
@@ -322,7 +321,7 @@ res = backtest.get_vertical_trade_result(df_monthly,
 
 res_psar_up = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry2,
-                                              trade_spec = sell_put[0],
+                                              trade_spec = sell_put[2],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
@@ -332,7 +331,7 @@ res_psar_up = backtest.get_vertical_trade_result(df_monthly,
 
 res_psar_up_novix20 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry3,
-                                              trade_spec = sell_put[0],
+                                              trade_spec = sell_put[2],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
@@ -342,7 +341,7 @@ res_psar_up_novix20 = backtest.get_vertical_trade_result(df_monthly,
 
 res_psar_up_novix20_noinvert = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry4,
-                                              trade_spec = sell_put[0],
+                                              trade_spec = sell_put[2],
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
@@ -398,10 +397,9 @@ call_entry3 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), tre
 call_entry4 = get_date_intersect(df_monthly, entry_psar_short)
 call_entry5 = get_date_intersect(df_monthly, entry_psar_short, notrade.no_vkospi_above_n(0.8))
 
-# call_exit = [get_date_intersect(df_monthly, df_k200.contra.psar_rebound(l_or_s = 'l'))]
-call_exit = []
+call_exit = [get_date_intersect(df_monthly, df_k200.contra.psar_rebound(l_or_s = 'l'))]
 
-call_stop = 0
+call_stop = 1
 
 # call_exit = []
 
@@ -429,7 +427,7 @@ res2 = backtest.get_vertical_trade_result(df_monthly,
 
 res3 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = call_entry3,
-                                              trade_spec = sell_call[0],
+                                              trade_spec = sell_call[2],
                                               dte_range = dte_range,
                                               exit_dates = call_exit,
                                               stop_dte = call_stop,
@@ -439,7 +437,7 @@ res3 = backtest.get_vertical_trade_result(df_monthly,
 
 res4 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = call_entry4,
-                                              trade_spec = sell_call[0],
+                                              trade_spec = sell_call[2],
                                               dte_range = dte_range,
                                               exit_dates = call_exit,
                                               stop_dte = call_stop,
@@ -449,7 +447,7 @@ res4 = backtest.get_vertical_trade_result(df_monthly,
 
 res5 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = call_entry5,
-                                              trade_spec = sell_call[0],
+                                              trade_spec = sell_call[2],
                                               dte_range = dte_range,
                                               exit_dates = call_exit,
                                               stop_dte = call_stop,
