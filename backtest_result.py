@@ -104,6 +104,175 @@ noentry_vkospi_above_n = notrade.no_vkospi_above_n(quantile = 0.2) # vkospi n보
 entry_vkospi_below_n = flip(notrade.no_vkospi_below_n(0.2))
 
 
+
+#콜매수계열 진입 (변동성 낮고 / --------------------------------------------------
+date_buy_call = dict(
+alltime = get_date_intersect(df_monthly),
+bbands = get_date_intersect(df_monthly, entry_bbands_long),
+psar = get_date_intersect(df_monthly, entry_psar_long),
+psar_no_highvol = get_date_intersect(df_monthly, entry_psar_long, notrade.no_vkospi_above_n(quantile = 0.5)),
+rsi = get_date_intersect(df_monthly, entry_rsi_long),
+stoch = get_date_intersect(df_monthly, entry_stoch_long)
+)
+
+# long call
+buy_call =[
+    {'C': [('delta', 0.4, 1)]},
+    {'C': [('delta', 0.3, 1)]},
+    {'C': [('delta', 0.2, 1)]},
+    {'C': [('delta', 0.1, 1)]}
+]
+
+# long call spreads
+buy_call_debit = [
+    {'C' : [('number', 0, 1), ('number', 2.5, -1)]},
+    {'C' : [('number', 2.5, 1), ('number', 5, -1)]},
+    {'C' : [('number', 5, 1), ('number', 7.5, -1)]},
+    {'C' : [('number', 7.5, 1), ('number', 10, -1)]}
+]
+
+buy_call_backspread = [
+    {'C' : [('delta', 0.5, -1), ('delta', 0.25, 2)]},
+    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 2)]},
+    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 3)]},
+    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]},
+    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 3)]}
+]
+sell_call_front = {'C' : [('delta', 0.4, -1)]}
+buy_call_back = {'C' : [('delta', 0.2, 2)]} 
+
+# 기본적으로 콜 skew 누워서 불리 > skew 따라 이득보려면 아예 매수부터 외가에 구축해야함
+# 콜매도계열 진입
+
+date_sell_call = dict(
+alltime = get_date_intersect(df_monthly),
+bbands = get_date_intersect(df_monthly, entry_bbands_short),
+bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.no_vkospi_below_n(0.2)),
+psar = get_date_intersect(df_monthly, entry_psar_short),
+psar_no_highvol = get_date_intersect(df_monthly, entry_psar_short, notrade.no_vkospi_below_n(quantile = 0.2)),
+rsi = get_date_intersect(df_monthly, entry_rsi_short),
+stoch = get_date_intersect(df_monthly, entry_stoch_short),
+stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.no_vkospi_below_n(0.2))
+)
+
+sell_call =[
+    {'C': [('delta', 0.4, -1)]},
+    {'C': [('delta', 0.3, -1)]},
+    {'C': [('delta', 0.2, -1)]},
+    {'C': [('delta', 0.1, -1)]}
+]
+
+sell_call_credit = [
+    {'C' : [('number', 0, -1), ('number', 2.5, 1)]},
+    {'C' : [('number', 2.5, -1), ('number', 5, 1)]},
+    {'C' : [('number', 5, -1), ('number', 7.5, 1)]},
+    {'C' : [('number', 7.5, -1), ('number', 10, 1)]}
+]
+
+sell_call_ratio = [
+    {'C' : [('delta', 0.5, 1), ('delta', 0.25, -2)]},
+    {'C' : [('delta', 0.4, 1), ('delta', 0.2, -2)]},
+    {'C' : [('delta', 0.4, 1), ('delta', 0.2, -3)]},
+    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -2)]},
+    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -3)]}
+]
+
+sell_call_111 = [
+    {'C' : [('delta', 0.5, 1), ('delta', 0.46, -1), ('delta', 0.15, -1)]},
+    {'C' : [('delta', 0.4, 1), ('delta', 0.36, -1), ('delta', 0.125, -1)]},
+    {'C' : [('delta', 0.3, 1), ('delta', 0.26, -1), ('delta', 0.10, -1)]},
+    {'C' : [('delta', 0.25, 1), ('delta', 0.20, -1), ('delta', 0.08, -1)]},
+    {'C' : [('delta', 0.2, 1), ('delta', 0.15, -1), ('delta', 0.07, -1)]}
+]
+
+#풋매수계열 진입 ---------------
+
+date_buy_put = dict(
+alltime = get_date_intersect(df_monthly),
+lowvol = get_date_intersect(df_monthly, flip(notrade.no_vkospi_below_n(0.2))),
+bbands = get_date_intersect(df_monthly, entry_bbands_short),
+bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.no_vkospi_above_n(0.8)),
+psar = get_date_intersect(df_monthly, entry_psar_short),
+psar_no_highvol = get_date_intersect(df_monthly, entry_psar_short, notrade.no_vkospi_above_n(0.8)),
+rsi = get_date_intersect(df_monthly, entry_rsi_short),
+stoch = get_date_intersect(df_monthly, entry_stoch_short),
+stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.no_vkospi_above_n(0.8))
+)
+
+# long put
+
+buy_put = [{'P': [('delta', -0.4, 1)]},
+            {'P': [('delta', -0.3, 1)]},
+            {'P': [('delta', -0.2, 1)]},
+            {'P': [('delta', -0.1, 1)]}
+]
+
+buy_put_debit = [
+    {'P': [('number', 0, 1), ('number', -2.5, -1)]},
+    {'P': [('number', -2.5, 1), ('number', -5, -1)]},
+    {'P': [('number', -5, 1), ('number', -7.5, -1)]},
+    {'P': [('number', -7.5, 1), ('number', -10, -1)]}
+]
+
+buy_put_backspread =[
+    {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]},
+    {'P': [('delta', -0.4, -1), ('delta', -0.21, 2)]},
+    {'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]},
+    {'P': [('number', 0, -1), ('number', -5, 2)]},
+    {'P': [('number', 0, -1), ('number', -7.5, 2)]}
+]
+
+sell_put_front = {'P': [('delta', -0.4, -1)]}
+buy_put_back = {'P': [('delta', -0.2, 2)]} 
+
+date_sell_put = dict(
+weekday = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4])),
+weekday_no_lowvol = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), notrade.no_vkospi_below_n(0.2)),
+bbands = get_date_intersect(df_monthly, entry_bbands_long),
+bbands_no_lowvol = get_date_intersect(df_monthly, entry_bbands_long, notrade.no_vkospi_below_n(0.2)),
+psar = get_date_intersect(df_monthly, entry_psar_long),
+psar_no_lowvol = get_date_intersect(df_monthly, entry_psar_long, notrade.no_vkospi_below_n(0.2)),
+rsi = get_date_intersect(df_monthly, entry_rsi_long),
+stoch = get_date_intersect(df_monthly, entry_stoch_long),
+stoch_no_lowvol = get_date_intersect(df_monthly, entry_stoch_long, notrade.no_vkospi_below_n(0.2))
+)
+
+# short put
+
+sell_put = [{'P': [('delta', -0.4, -1)]},
+            {'P': [('delta', -0.3, -1)]},
+            {'P': [('delta', -0.2, -1)]},
+            {'P': [('delta', -0.1, -1)]}
+]
+
+sell_put_credit = [
+    {'P': [('number', 0, -1), ('number', -2.5, 1)]},
+    {'P': [('number', -2.5, -1), ('number', -5, 1)]},
+    {'P': [('number', -5, -1), ('number', -7.5, 1)]},
+    {'P': [('number', -7.5, -1), ('number', -10, 1)]}
+]
+
+sell_put_backspread =[
+    {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]},
+    {'P': [('delta', -0.4, -1), ('delta', -0.21, 2)]},
+    {'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]},
+    {'P': [('number', 0, -1), ('number', -5, 2)]},
+    {'P': [('number', 0, -1), ('number', -7.5, 2)]}
+]
+
+sell_put_111 = [
+    {'P' : [('delta', -0.5, 1), ('delta', -0.46, -1), ('delta', -0.20, -1)]},
+    {'P' : [('delta', -0.4, 1), ('delta', -0.36, -1), ('delta', -0.17, -1)]},
+    {'P' : [('delta', -0.3, 1), ('delta', -0.26, -1), ('delta', -0.14, -1)]},
+    {'P' : [('delta', -0.25, 1), ('delta',- 0.20, -1), ('delta',-0.10, -1)]},
+    {'P' : [('delta', -0.2, 1), ('delta', -0.15, -1), ('delta', -0.07, -1)]}
+]
+
+buy_put_front = {'P': [('delta', -0.4, 1)]}
+sell_put_back = {'P': [('delta', -0.2, -2)]} 
+
+
+
 # #뉴트럴매도 진입 : 변동성 높고 / 위아래 방향성 아닌 경우--------------------------------------------------
 # date_neutral = dict(
 # date_neutral1 = get_date_intersect(df_monthly),
@@ -311,45 +480,7 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               profit_take = 4,
                                               stop_loss = -0.5)
 
-#%% long call
 
-#콜매수계열 진입 (변동성 낮고 / --------------------------------------------------
-date_buy_call = dict(
-alltime = get_date_intersect(df_monthly),
-bbands = get_date_intersect(df_monthly, entry_bbands_long),
-psar = get_date_intersect(df_monthly, entry_psar_long),
-psar_no_highvol = get_date_intersect(df_monthly, entry_psar_long, notrade.no_vkospi_above_n(quantile = 0.5)),
-rsi = get_date_intersect(df_monthly, entry_rsi_long),
-stoch = get_date_intersect(df_monthly, entry_stoch_long)
-)
-
-# long call
-buy_call =[
-    {'C': [('delta', 0.4, 1)]},
-    {'C': [('delta', 0.3, 1)]},
-    {'C': [('delta', 0.2, 1)]},
-    {'C': [('delta', 0.1, 1)]}
-]
-
-# long call spreads
-buy_call_debit = [
-    {'C' : [('number', 0, 1), ('number', 2.5, -1)]},
-    {'C' : [('number', 2.5, 1), ('number', 5, -1)]},
-    {'C' : [('number', 5, 1), ('number', 7.5, -1)]},
-    {'C' : [('number', 7.5, 1), ('number', 10, -1)]}
-]
-
-buy_call_backspread = [
-    {'C' : [('delta', 0.5, -1), ('delta', 0.25, 2)]},
-    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 2)]},
-    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 3)]},
-    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]},
-    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 3)]}
-]
-sell_call_front = {'C' : [('delta', 0.4, -1)]}
-buy_call_back = {'C' : [('delta', 0.2, 2)]} 
-
-# 기본적으로 콜 skew 누워서 불리 > skew 따라 이득보려면 아예 매수부터 외가에 구축해야함
 
 #%% 
 
@@ -421,48 +552,6 @@ for key, values in date_buy_call.items():
 
 #%% short call
 
-# 콜매도계열 진입
-
-date_sell_call = dict(
-alltime = get_date_intersect(df_monthly),
-bbands = get_date_intersect(df_monthly, entry_bbands_short),
-bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.no_vkospi_below_n(0.2)),
-psar = get_date_intersect(df_monthly, entry_psar_short),
-psar_no_highvol = get_date_intersect(df_monthly, entry_psar_short, notrade.no_vkospi_below_n(quantile = 0.2)),
-rsi = get_date_intersect(df_monthly, entry_rsi_short),
-stoch = get_date_intersect(df_monthly, entry_stoch_short),
-stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.no_vkospi_below_n(0.2))
-)
-
-sell_call =[
-    {'C': [('delta', 0.4, -1)]},
-    {'C': [('delta', 0.3, -1)]},
-    {'C': [('delta', 0.2, -1)]},
-    {'C': [('delta', 0.1, -1)]}
-]
-
-sell_call_credit = [
-    {'C' : [('number', 0, -1), ('number', 2.5, 1)]},
-    {'C' : [('number', 2.5, -1), ('number', 5, 1)]},
-    {'C' : [('number', 5, -1), ('number', 7.5, 1)]},
-    {'C' : [('number', 7.5, -1), ('number', 10, 1)]}
-]
-
-sell_call_ratio = [
-    {'C' : [('delta', 0.5, 1), ('delta', 0.25, -2)]},
-    {'C' : [('delta', 0.4, 1), ('delta', 0.2, -2)]},
-    {'C' : [('delta', 0.4, 1), ('delta', 0.2, -3)]},
-    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -2)]},
-    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -3)]}
-]
-
-sell_call_111 = [
-    {'C' : [('delta', 0.5, 1), ('delta', 0.46, -1), ('delta', 0.15, -1)]},
-    {'C' : [('delta', 0.4, 1), ('delta', 0.36, -1), ('delta', 0.125, -1)]},
-    {'C' : [('delta', 0.3, 1), ('delta', 0.26, -1), ('delta', 0.10, -1)]},
-    {'C' : [('delta', 0.25, 1), ('delta', 0.20, -1), ('delta', 0.08, -1)]},
-    {'C' : [('delta', 0.2, 1), ('delta', 0.15, -1), ('delta', 0.07, -1)]}
-]
 
 #%%
 res_call = dict()
@@ -532,50 +621,6 @@ for key, values in date_sell_call.items():
                                                     stop_loss = stop_loss)
                 res_call_111[f"{key}_{trade}_{dte}_{stop_loss}"] = res   
 
-
-
-#%%
-
-#풋매수계열 진입 ---------------
-
-date_buy_put = dict(
-alltime = get_date_intersect(df_monthly),
-lowvol = get_date_intersect(df_monthly, flip(notrade.no_vkospi_below_n(0.2))),
-bbands = get_date_intersect(df_monthly, entry_bbands_short),
-bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.no_vkospi_above_n(0.8)),
-psar = get_date_intersect(df_monthly, entry_psar_short),
-psar_no_highvol = get_date_intersect(df_monthly, entry_psar_short, notrade.no_vkospi_above_n(0.8)),
-rsi = get_date_intersect(df_monthly, entry_rsi_short),
-stoch = get_date_intersect(df_monthly, entry_stoch_short),
-stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.no_vkospi_above_n(0.8))
-)
-
-# long put
-
-buy_put = [{'P': [('delta', -0.4, 1)]},
-            {'P': [('delta', -0.3, 1)]},
-            {'P': [('delta', -0.2, 1)]},
-            {'P': [('delta', -0.1, 1)]}
-]
-
-buy_put_debit = [
-    {'P': [('number', 0, 1), ('number', -2.5, -1)]},
-    {'P': [('number', -2.5, 1), ('number', -5, -1)]},
-    {'P': [('number', -5, 1), ('number', -7.5, -1)]},
-    {'P': [('number', -7.5, 1), ('number', -10, -1)]}
-]
-
-buy_put_backspread =[
-    {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]},
-    {'P': [('delta', -0.4, -1), ('delta', -0.21, 2)]},
-    {'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]},
-    {'P': [('number', 0, -1), ('number', -5, 2)]},
-    {'P': [('number', 0, -1), ('number', -7.5, 2)]}
-]
-
-sell_put_front = {'P': [('delta', -0.4, -1)]}
-buy_put_back = {'P': [('delta', -0.2, 2)]} 
-
 #%%
 res_put = dict()
 
@@ -644,58 +689,6 @@ for key, values in date_buy_put.items():
                                                     profit_take = profit_target,
                                                     stop_loss = -1)
             res_put_calendar[f"{key}_{dte}_{profit_target}"] = res
-
-#%% 
-# 풋매도계열 진입
-            
-date_sell_put = dict(
-weekday = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4])),
-weekday_no_lowvol = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), notrade.no_vkospi_below_n(0.2)),
-bbands = get_date_intersect(df_monthly, entry_bbands_long),
-bbands_no_lowvol = get_date_intersect(df_monthly, entry_bbands_long, notrade.no_vkospi_below_n(0.2)),
-psar = get_date_intersect(df_monthly, entry_psar_long),
-psar_no_lowvol = get_date_intersect(df_monthly, entry_psar_long, notrade.no_vkospi_below_n(0.2)),
-rsi = get_date_intersect(df_monthly, entry_rsi_long),
-stoch = get_date_intersect(df_monthly, entry_stoch_long),
-stoch_no_lowvol = get_date_intersect(df_monthly, entry_stoch_long, notrade.no_vkospi_below_n(0.2))
-)
-
-# short put
-
-sell_put = [{'P': [('delta', -0.4, -1)]},
-            {'P': [('delta', -0.3, -1)]},
-            {'P': [('delta', -0.2, -1)]},
-            {'P': [('delta', -0.1, -1)]}
-]
-
-sell_put_credit = [
-    {'P': [('number', 0, -1), ('number', -2.5, 1)]},
-    {'P': [('number', -2.5, -1), ('number', -5, 1)]},
-    {'P': [('number', -5, -1), ('number', -7.5, 1)]},
-    {'P': [('number', -7.5, -1), ('number', -10, 1)]}
-]
-
-sell_put_backspread =[
-    {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]},
-    {'P': [('delta', -0.4, -1), ('delta', -0.21, 2)]},
-    {'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]},
-    {'P': [('number', 0, -1), ('number', -5, 2)]},
-    {'P': [('number', 0, -1), ('number', -7.5, 2)]}
-]
-
-sell_put_111 = [
-    {'P' : [('delta', -0.5, 1), ('delta', -0.46, -1), ('delta', -0.20, -1)]},
-    {'P' : [('delta', -0.4, 1), ('delta', -0.36, -1), ('delta', -0.17, -1)]},
-    {'P' : [('delta', -0.3, 1), ('delta', -0.26, -1), ('delta', -0.14, -1)]},
-    {'P' : [('delta', -0.25, 1), ('delta',- 0.20, -1), ('delta',-0.10, -1)]},
-    {'P' : [('delta', -0.2, 1), ('delta', -0.15, -1), ('delta', -0.07, -1)]}
-]
-
-buy_put_front = {'P': [('delta', -0.4, 1)]}
-sell_put_back = {'P': [('delta', -0.2, -2)]} 
-
-#%% 
-
 
 
 #%% loop_231028 일단 주요 진입조건 변화에 따른 sell_put 전략들 위주로
