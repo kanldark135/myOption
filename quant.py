@@ -70,7 +70,7 @@ def df_drawdown(df, is_ret = False):
 def dd_from_last_top(df, is_ret = False):
     ''' drawdown 말고 최근 고점 대비 하락폭 측정'''
 
-def mdd(df, is_ret = False):
+def mdd(df, is_ret = False):  
     ''' df 는 종가거나 여타 가격이어야만 함 / df가 수익률인 경우 is_ret = True로 표기'''
     if is_ret == True:
         cumret = (df + 1).cumprod()
@@ -174,24 +174,6 @@ def summary(df_ret, df_bm = None, interval = 'D', rf = 0, is_ret = True):
     }
 
     return dummy_dict
-
-class ta:
-
-    def __init__(self, df):
-        
-        # ohlc 던 close only던 df_price feed 하면 종가만 튀어나오게 수정
-
-        self.df = close_only(df)
-        self.ret = self.df.pct_change(1).iloc[1:]
-        self.cumret = (self.ret + 1).cumprod()
-
-    def bollinger_band(self, days = 20, width = 2):
-
-        df = self.df
-        stdev = df.rolling(days).std()
-        df = df.assign(bb_center = df.rolling(days).mean(), bb_upper = df.rolling(days).mean().add(width * stdev), bb_lower = df.rolling(days).mean().sub(width * stdev))
-
-        return df
 
 
 

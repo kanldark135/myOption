@@ -102,7 +102,7 @@ def fraction_of_kelly(kelly_ratio, mean, stdev):
 	
 	return growth_rate
 
-
+@pd.api.extensions.register_dataframe_accessor("to_return")
 class ohlc_return:
 
     ''' feed any price dataset with OHLC format as df_price'''

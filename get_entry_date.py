@@ -45,6 +45,41 @@ def weekday_entry(option_df, weekdays = [3]):
 
     return res
 
+
+@pd.api.extensions.register_dataframe_accessor('stoch')
+class stochastic:
+
+    def __init__(self, df :[pd.Series, pd.DataFrame]):
+        self.df = df
+
+    def stoch_overtraded(self, pos = 'b', k_or_d = "k", k = 5, d = 3, smooth_d = 3):
+        
+        ''' 
+        contrarian 계열 (pos = long이면 과매도만 return)
+        default = k 기준으로 over/under 측정?
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
+        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+
+        stoch['signal'] = np.nan
+        stoch['signal'] = stoch['signal'].mask(stoch[k_or_d] < 20, -1) # 과매도권
+        stoch['signal'] = stoch['signal'].mask(stoch[k_or_d] > 80, 1) # 과매수권
+
+        if pos == "l": 
+            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan)
+        elif pos == "s": 
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan) * -1
+        else:
+            res = stoch[['signal']]
+
+        return res
+              
+
+
 # 1. 과열 침체 역방향 시그널
 
 @pd.api.extensions.register_dataframe_accessor('contra')
@@ -53,7 +88,7 @@ class MyContrarian:
     def __init__(self, df:[pd.DataFrame, pd.Series]):
         self._df = df
 
-    def through_bbands(self, l_or_s = 'b', length = 20, std = 2):
+    def through_bbands(self, pos = 'b', length = 20, std = 2):
 
         '''
         long_only = 'l'
@@ -74,11 +109,11 @@ class MyContrarian:
         cond_short = (self._df['close'] > bbands['bbu_' + str(length) + "_" + str(float(std))]) 
         res.loc[cond_short, 'signal'] = -1
 
-        if l_or_s == 'l':
+        if pos == 'l':
             res = res.mask(res['signal'] == -1, np.nan)
-        elif l_or_s == 's':
+        elif pos == 's':
             res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
-        elif l_or_s == 'b':
+        elif pos == 'b':
             res = res
         else:
             raise ValueError("l_or_s must be l, s or b")
@@ -95,9 +130,7 @@ class MyContrarian:
     
         res = pd.DataFrame(index = self._df.index, columns = ['signal'])
         stoch = self._df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
-        stoch = stoch.reindex(res.index)
-        stoch.columns = stoch.columns.str.lower()
-        stoch = stoch.rename(columns = {f'stochk_{k}_{d}_{smooth_d}' : 'k', f'stochd_{k}_{d}_{smooth_d}' : 'd'}) 
+        stoch.columns = ['k', 'd']
 
         # 롱 시그널
         cond_long_1 = stoch['k'].shift(1) <= 20 # K가 전날 20 밑에 (오늘은 상관 없음)
@@ -119,7 +152,6 @@ class MyContrarian:
             res = res
         else:
             raise ValueError("l_or_s must be l, s or b")            
-
 
         return res
 
@@ -178,11 +210,63 @@ class MyContrarian:
         else:
             raise ValueError("l_or_s must be l, s or b")            
         return res
+    
+# 2. 정추세 지속 시그널
+@pd.api.extensions.register_dataframe_accessor("trend")
 
-# 2. 매매 안 하는 상황
+class MyTrend:
+    def __init__(self, df):
+        self.df = df
+
+    def psar_trend(self, l_or_s = 'b', af0 = 0.02, af = 0.02, max_df = 0.2):
+        
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
+        psar = self.df.ta.psar(af0 = af0, af = af, max_df = max_df)
+        psar = psar.rename(columns = {'PSARl_0.02_0.2' : 'l', 'PSARs_0.02_0.2' : 's', 'PSARr_0.02_0.2' : 'signal'})
+        
+        if l_or_s == "l":
+            res = psar[['l']].mask(psar['l'].notna(), 1).rename(columns = {"l" : "signal"})
+        
+        elif l_or_s == "s":
+            res = psar[['s']].mask(psar['s'].notna(), 1).rename(columns = {'s' : 'signal'})
+
+        else:
+            res = pd.DataFrame(data = np.where(psar['l'].notna(), 1, -1), index = psar.index, columns = ['signal'])
+
+        return res
+    
+    def stoch_trend(self, l_or_s = 'b', k = 10, d = 5, smooth_d  = 5):
+
+        '''
+        실제 trend는 stoch_d 로 smoothed 된 값으로 측정
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+        stoch = stoch - stoch.shift(1)
+        stoch['signal'] = np.where(stoch['d'] >= 0, 1, -1)
+
+        if l_or_s == "l": # 롱트렌드면 하방은 na로 처리
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
+
+        elif l_or_s == "s": # 숏트렌드면 상방은 na 처리
+            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
+        else:
+            res = stoch[['signal']]
+
+        return res
+
+# 3. 매매 안 하는 상황
 class notrade:
 
-    def no_vix_curve_invert(notrade_criteria = 0, sma_days = 20):
+    def vix_curve_invert(notrade_criteria = 0, sma_days = 20):
 
         df_vix = pd.read_pickle("./working_data/df_vix.pkl")
         res = pd.DataFrame(index = df_vix.index, columns = ['signal'])
@@ -196,7 +280,7 @@ class notrade:
 
         return res
 
-    def no_vkospi_below_n(quantile = 0.2, low_or_close = 'close'):
+    def vkospi_below_n(quantile = 0.2, low_or_close = 'close'):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
@@ -209,7 +293,7 @@ class notrade:
 
         return res
     
-    def no_vkospi_above_n(quantile = 0.8, high_or_close = 'close'):
+    def vkospi_above_n(quantile = 0.8, high_or_close = 'close'):
 
         df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
         res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
@@ -226,36 +310,6 @@ class notrade:
 # 직전 고점 대비 하락폭 (통산 전고점 대비 drawdown 아님)
     
 
-# 2. 정추세 지속 시그널
-
-@pd.api.extensions.register_dataframe_accessor("trend")
-class MyTrend:
-    def __init__(self, df):
-        self.df = df
-
-    def psar_trend(self, l_or_s = 'b'):
-        
-        '''
-        long_only = 'l'
-        short_only = 's'
-        both = 'b'
-        '''
-
-        psar = self.df.ta.psar()
-        psar = psar.rename(columns = {'PSARl_0.02_0.2' : 'l', 'PSARs_0.02_0.2' : 's', 'PSARr_0.02_0.2' : 'signal'})
-        
-        if l_or_s == "l":
-            res = psar[['l']].mask(psar['l'].notna(), 1).rename(columns = {"l" : "signal"})
-        
-        elif l_or_s == "s":
-            res = psar[['s']].mask(psar['s'].notna(), 1).rename(columns = {'s' : 'signal'})
-
-        else:
-            res = pd.DataFrame(data = np.where(psar['l'].notna(), 1, -1), index = psar.index, columns = ['signal'])
-
-        return res
-    
-
 # 3. 돌파매매 시그널
 
 
@@ -266,3 +320,5 @@ class divergence:
 
     def __init__(self, df):
         self.df = df
+
+# %%
