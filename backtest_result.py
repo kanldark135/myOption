@@ -70,30 +70,28 @@ def sized_cum(df_result, df_sizing):
 
 from get_entry_date import get_date_intersect, get_date_union, weekday_entry, MyContrarian, notrade, MyTrend
 
-df_k200 = pd.read_pickle("./working_data/df_k200.pkl")
-
 #역발상_상승전환 ~ 상승
-entry_stoch_long = df_k200.contra.stoch_rebound(pos = 'l', k = 5, d = 3, smooth_d = 3)
-entry_bbands_long = df_k200.contra.through_bbands(pos = 'l', length = 20, std = 2)
-entry_rsi_long = df_k200.contra.rsi_rebound(pos = 'l', length = 14, scalar = 20)
-entry_psar_long = df_k200.contra.psar_rebound(pos = 'l')
+entry_stoch_long = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
+entry_bbands_long = k200.contra.through_bbands(pos = 'l', length = 20, std = 2)
+entry_rsi_long = k200.contra.rsi_rebound(pos = 'l', length = 14, scalar = 20)
+entry_psar_long = k200.contra.psar_rebound(pos = 'l')
 
 #모멘텀_상승지속??
 
-trend_psar_long = df_k200.trend.psar_trend(pos = 'l')
-trend_stoch_long = df_k200.trend.stoch_trend(pos = 'l', k = 10, d = 5, smooth_d = 5)
+trend_psar_long = k200.trend.psar_trend(pos = 'l')
+trend_stoch_long = k200.stoch.trend1(pos = 'l', k = 10, d = 5, smooth_d = 5)
 
 #역발상_하락전환 ~ 하락
-entry_stoch_short = df_k200.contra.stoch_rebound(pos = 's', k = 5, d = 3, smooth_d = 3)
-entry_bbands_short = df_k200.contra.through_bbands(pos = 's', length = 20, std = 2)
-entry_rsi_short = df_k200.contra.rsi_rebound(pos = 's', length = 14, scalar = 20)
-entry_psar_short = df_k200.contra.psar_rebound(pos = 's')
+entry_stoch_short = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
+entry_bbands_short = k200.contra.through_bbands(pos = 's', length = 20, std = 2)
+entry_rsi_short = k200.contra.rsi_rebound(pos = 's', length = 14, scalar = 20)
+entry_psar_short = k200.contra.psar_rebound(pos = 's')
 
 #모멘텀_하락지속??
 noentry_stoch_short = flip(entry_stoch_short)
 noentry_stoch_long = flip(entry_stoch_long)
-trend_psar_short = df_k200.trend.psar_trend(pos = 's')
-trend_stoch_short = df_k200.trend.stoch_trend(pos = 's', k = 10, d = 5, smooth_d = 5)
+trend_psar_short = k200.trend.psar_trend(pos = 's')
+trend_stoch_short = k200.stoch.trend1(pos = 's', k = 10, d = 5, smooth_d = 5)
 
 #변동성 감소 ~ contained
 noentry_stoch_limit = flip(entry_stoch_long.combine_first(entry_stoch_short))
@@ -225,8 +223,8 @@ sell_put_front = {'P': [('delta', -0.4, -1)]}
 buy_put_back = {'P': [('delta', -0.2, 2)]} 
 
 date_sell_put = dict(
-weekday = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4])),
-weekday_no_lowvol = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), notrade.vkospi_below_n(0.2)),
+weekday = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4])),
+weekday_no_lowvol = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), notrade.vkospi_below_n(0.2)),
 bbands = get_date_intersect(df_monthly, entry_bbands_long),
 bbands_no_lowvol = get_date_intersect(df_monthly, entry_bbands_long, notrade.vkospi_below_n(0.2)),
 psar = get_date_intersect(df_monthly, entry_psar_long),
@@ -297,13 +295,13 @@ sell_put_back = {'P': [('delta', -0.2, -2)]}
 #%% finalized quick
 
 put_entry0 = get_date_intersect(df_monthly)
-put_entry1 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), notrade.vix_curve_invert())
-put_entry2 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), trend_psar_long)
-put_entry3 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), trend_psar_long, notrade.vkospi_below_n(0.2))
-put_entry4 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), trend_psar_long, notrade.vkospi_below_n(0.2), notrade.vix_curve_invert())
-put_entry5 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), trend_psar_long, trend_stoch_long)
+put_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), notrade.vix_curve_invert())
+put_entry2 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long)
+put_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, notrade.vkospi_below_n(0.2))
+put_entry4 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, notrade.vkospi_below_n(0.2), notrade.vix_curve_invert())
+put_entry5 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, trend_stoch_long)
 
-put_exit = get_date_intersect(df_monthly, df_k200.contra.psar_rebound(pos = 's'))
+put_exit = get_date_intersect(df_monthly, k200.contra.psar_rebound(pos = 's'))
 put_stop = 1
 
 # put_exit = []
@@ -378,7 +376,7 @@ res_psar_stoch = backtest.get_vertical_trade_result(df_monthly,
 entry0 = get_date_intersect(df_monthly)
 bsh_entry1 = get_date_intersect(df_monthly, trend_psar_short, weekday_entry(df_monthly, [0, 4]))
 bsh_entry2 = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_above_n(0.8))
-bsh_exit = get_date_intersect(df_monthly, df_k200.contra.psar_rebound(pos = 's'))
+bsh_exit = get_date_intersect(df_monthly, k200.contra.psar_rebound(pos = 's'))
 
 # put_exit = []
 
@@ -401,13 +399,13 @@ res_bsh = backtest.get_vertical_trade_result(df_monthly,
 #%% finalized quick _addhoc for call
 
 entry0 = get_date_intersect(df_monthly)
-call_entry1 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]))
-call_entry2 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), trend_psar_short)
-call_entry3 = get_date_intersect(df_monthly, weekday_entry(df_k200, [0, 4]), trend_psar_short, notrade.vkospi_above_n(0.8))
+call_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]))
+call_entry2 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_short)
+call_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_short, notrade.vkospi_above_n(0.8))
 call_entry4 = get_date_intersect(df_monthly, entry_psar_short)
 call_entry5 = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_above_n(0.8))
 
-call_exit = [get_date_intersect(df_monthly, df_k200.contra.psar_rebound(pos = 'l'))]
+call_exit = [get_date_intersect(df_monthly, k200.contra.psar_rebound(pos = 'l'))]
 
 call_stop = 1
 

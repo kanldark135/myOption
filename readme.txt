@@ -1,10 +1,11 @@
 ㅇlibraries
 
-    conda included libraries
-    openbb
-    pandas_ta : dataframe 이 ohlc 꼴로만 되있으면 알아서 해줌
-    TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 / 직접 쓰기 불편함
-    FinanceDataReader
+    - conda included libraries
+    - openbb
+    - pandas_ta : dataframe 이 ohlc 꼴로만 되있으면 알아서 해줌
+    - TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 / 직접 쓰기 불편함
+    - FinanceDataReader : 
+    - riskfolio : 위험지표 및 포트폴리오 최적화
 
 ㅇentry_strat
     해당 모듈의 목표 : 진입 / 청산의 시점 (return index of each signals) 의 array 도출하는 것

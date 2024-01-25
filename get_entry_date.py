@@ -9,6 +9,8 @@ import pandas_ta as ta
 k200 = pd.read_pickle('./working_data/df_k200.pkl')
 vkospi = pd.read_pickle('./working_data/df_vkospi.pkl')
 vix = pd.read_pickle('./working_data/df_vix.pkl')
+df_monthly = pd.read_pickle("./working_data/df_monthly.pkl")
+df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")
 
 def get_date_intersect(option_df, *args):
     ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
@@ -45,14 +47,13 @@ def weekday_entry(option_df, weekdays = [3]):
 
     return res
 
-
 @pd.api.extensions.register_dataframe_accessor('stoch')
 class stochastic:
 
     def __init__(self, df :[pd.Series, pd.DataFrame]):
         self.df = df
 
-    def stoch_overtraded(self, pos = 'b', k_or_d = "k", k = 5, d = 3, smooth_d = 3):
+    def overtraded(self, pos = 'b', k_or_d = "k", k = 5, d = 3, smooth_d = 3):
         
         ''' 
         contrarian 계열 (pos = long이면 과매도만 return)
@@ -61,7 +62,6 @@ class stochastic:
         short_only = 's'
         both = 'b'
         '''
-
         stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
         stoch.columns = ['k', 'd']
 
@@ -70,16 +70,109 @@ class stochastic:
         stoch['signal'] = stoch['signal'].mask(stoch[k_or_d] > 80, 1) # 과매수권
 
         if pos == "l": 
-            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan)
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
         elif pos == "s": 
-            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan) * -1
+            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
+        else:
+            res = stoch[['signal']]
+        return res
+
+    def rebound1(self, pos ='b', k = 5, d = 3, smooth_d = 3):
+
+        '''
+        Contrarian : 전날까지 과매도 / 과매수권에 있다가 + 당일 K가 D를 반대로 돌파하는
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+        stoch = self._df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+        stoch['signal'] = np.nan
+
+        # 롱 시그널
+        cond_long_1 = stoch['k'].shift(1) <= 20 # K가 전날 20 밑에 (오늘은 상관 없음)
+        cond_long_2 = stoch['k'] > stoch['d'] # K가 오늘 D를 상향돌파
+        cond_long = cond_long_1 * cond_long_2
+        res.loc[cond_long, 'signal'] = 1
+
+        # 숏 시그널
+        cond_short_1 = stoch['k'].shift(1) > 80 # K가 전날 80 위에 (오늘은 상관 없음)
+        cond_short_2 = stoch['k'] < stoch['d'] # K가 오늘 D를 하향돌파
+        cond_short = cond_short_1 * cond_short_2
+        res.loc[cond_short, 'signal'] = -1
+
+        if pos == 'l':
+            res = res.mask(res['signal'] == -1, np.nan) 
+        elif pos == 's':
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
+        elif pos == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")            
+
+        return res
+
+    def rebound2(self, pos ='b', k_or_d = 'k', k = 5, d = 3, smooth_d = 3):
+
+        '''
+        Contrarian : 전날까지 과매도 / 과매수권에 있다가 + 전일대비 지표 떨어지는
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+        stoch = self._df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+        stoch['signal'] = np.nan
+        
+        # 롱 시그널
+        # cond_long_1 = stoch['k'].shift(1) <= 20 # K가 전날 20 밑에 (오늘은 상관 없음)
+        cond_long_2 = stoch[k_or_d].shift(1) > stoch[k_or_d] # K가 오늘 D를 상향돌파
+        cond_long = cond_long_1 * cond_long_2
+        res.loc[cond_long, 'signal'] = 1
+
+        # 숏 시그널
+        cond_short_1 = stoch['k'].shift(1) > 80 # K가 전날 80 위에 (오늘은 상관 없음)
+        cond_short_2 = stoch['k'] < stoch['d'] # K가 오늘 D를 하향돌파
+        cond_short = cond_short_1 * cond_short_2
+        res.loc[cond_short, 'signal'] = -1
+
+        if pos == 'l':
+            res = res.mask(res['signal'] == -1, np.nan) 
+        elif pos == 's':
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
+        elif pos == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")            
+
+        return res
+    
+
+    def trend1(self, pos = 'b', k = 10, d = 5, smooth_d  = 5):
+
+        '''
+        전일 대비 오늘 값이 높은지 / 낮은지 유무
+
+        실제 trend는 stoch_d 로 smoothed 된 값으로 측정
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+        stoch = stoch - stoch.shift(1)
+        stoch['signal'] = np.where(stoch['d'] >= 0, 1, -1)
+
+        if pos == "l": # 롱트렌드면 하방은 na로 처리
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
+
+        elif pos == "s": # 숏트렌드면 상방은 na 처리
+            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
         else:
             res = stoch[['signal']]
 
         return res
               
-
-
 # 1. 과열 침체 역방향 시그널
 
 @pd.api.extensions.register_dataframe_accessor('contra')
@@ -95,7 +188,6 @@ class MyContrarian:
         short_only = 's'
         both = 'b'
         '''
-        
         res = pd.DataFrame(index = self._df.index, columns = ['signal'])
 
         bbands = self._df.ta.bbands(length, std)
@@ -119,43 +211,8 @@ class MyContrarian:
             raise ValueError("l_or_s must be l, s or b")
 
         return res
-    
-    def stoch_rebound(self, l_or_s ='b', k = 5, d = 3, smooth_d = 3):
 
-        '''
-        long_only = 'l'
-        short_only = 's'
-        both = 'b'
-        '''
-    
-        res = pd.DataFrame(index = self._df.index, columns = ['signal'])
-        stoch = self._df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
-        stoch.columns = ['k', 'd']
-
-        # 롱 시그널
-        cond_long_1 = stoch['k'].shift(1) <= 20 # K가 전날 20 밑에 (오늘은 상관 없음)
-        cond_long_2 = stoch['k'] > stoch['d'] # K가 오늘 D를 상향돌파
-        cond_long = cond_long_1 * cond_long_2
-        res.loc[cond_long, 'signal'] = 1
-
-        # 숏 시그널
-        cond_short_1 = stoch['k'].shift(1) > 80 # K가 전날 80 위에 (오늘은 상관 없음)
-        cond_short_2 = stoch['k'] < stoch['d'] # K가 오늘 D를 하향돌파
-        cond_short = cond_short_1 * cond_short_2
-        res.loc[cond_short, 'signal'] = -1
-
-        if l_or_s == 'l':
-            res = res.mask(res['signal'] == -1, np.nan) 
-        elif l_or_s == 's':
-            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
-        elif l_or_s == 'b':
-            res = res
-        else:
-            raise ValueError("l_or_s must be l, s or b")            
-
-        return res
-
-    def rsi_rebound(self, l_or_s = 'l', length = 14, scalar = 100):
+    def rsi_rebound(self, pos = 'l', length = 14, scalar = 100):
 
         '''
         long_only = 'l'
@@ -178,17 +235,17 @@ class MyContrarian:
         cond_short = cond_short_1 * cond_short_2
         res.loc[cond_short, 'signal'] = -1
 
-        if l_or_s == 'l':
+        if pos == 'l':
             res = res.mask(res['signal'] == -1, np.nan) 
-        elif l_or_s == 's':
+        elif pos == 's':
             res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
-        elif l_or_s == 'b':
+        elif pos == 'b':
             res = res
         else:
             raise ValueError("l_or_s must be l, s or b")            
         return res
         
-    def psar_rebound(self, l_or_s = 'l'):
+    def psar_rebound(self, pos = 'l'):
 
         '''
         long_only = 'l'
@@ -201,11 +258,11 @@ class MyContrarian:
         res = psar['signal'].mask((psar['s'].notna())&(psar['signal'] == 1), -1).to_frame()
         res = res.mask(res['signal'] == 0, np.nan)
 
-        if l_or_s == 'l':
+        if pos == 'l':
             res = res.mask(res['signal'] == -1, np.nan) 
-        elif l_or_s == 's':
+        elif pos == 's':
             res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
-        elif l_or_s == 'b':
+        elif pos == 'b':
             res = res
         else:
             raise ValueError("l_or_s must be l, s or b")            
@@ -218,7 +275,7 @@ class MyTrend:
     def __init__(self, df):
         self.df = df
 
-    def psar_trend(self, l_or_s = 'b', af0 = 0.02, af = 0.02, max_df = 0.2):
+    def psar_trend(self, pos = 'b', af0 = 0.02, af = 0.02, max_df = 0.2):
         
         '''
         long_only = 'l'
@@ -229,10 +286,10 @@ class MyTrend:
         psar = self.df.ta.psar(af0 = af0, af = af, max_df = max_df)
         psar = psar.rename(columns = {'PSARl_0.02_0.2' : 'l', 'PSARs_0.02_0.2' : 's', 'PSARr_0.02_0.2' : 'signal'})
         
-        if l_or_s == "l":
+        if pos == "l":
             res = psar[['l']].mask(psar['l'].notna(), 1).rename(columns = {"l" : "signal"})
         
-        elif l_or_s == "s":
+        elif pos == "s":
             res = psar[['s']].mask(psar['s'].notna(), 1).rename(columns = {'s' : 'signal'})
 
         else:
@@ -240,28 +297,7 @@ class MyTrend:
 
         return res
     
-    def stoch_trend(self, l_or_s = 'b', k = 10, d = 5, smooth_d  = 5):
 
-        '''
-        실제 trend는 stoch_d 로 smoothed 된 값으로 측정
-        long_only = 'l'
-        short_only = 's'
-        both = 'b'
-        '''
-        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
-        stoch.columns = ['k', 'd']
-        stoch = stoch - stoch.shift(1)
-        stoch['signal'] = np.where(stoch['d'] >= 0, 1, -1)
-
-        if l_or_s == "l": # 롱트렌드면 하방은 na로 처리
-            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
-
-        elif l_or_s == "s": # 숏트렌드면 상방은 na 처리
-            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
-        else:
-            res = stoch[['signal']]
-
-        return res
 
 # 3. 매매 안 하는 상황
 class notrade:
