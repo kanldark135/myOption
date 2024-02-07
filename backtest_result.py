@@ -79,6 +79,7 @@ entry_psar_long = k200.contra.psar_rebound(pos = 'l')
 #모멘텀_상승지속??
 
 trend_psar_long = k200.trend.psar_trend(pos = 'l')
+trend_supertrend_long = k200.trend.supertrend_trend(pos = 'l')
 trend_stoch_long = k200.stoch.is_updown(pos = 'l', k_or_d = 'k', k = 5, d = 3, smooth_d = 3)
 
 #역발상_하락전환 ~ 하락
@@ -91,6 +92,7 @@ entry_psar_short = k200.contra.psar_rebound(pos = 's')
 noentry_stoch_short = flip(entry_stoch_short)
 noentry_stoch_long = flip(entry_stoch_long)
 trend_psar_short = k200.trend.psar_trend(pos = 's')
+trend_supertrend_short = k200.trend.supertrend_trend(pos = 's')
 trend_stoch_short = k200.stoch.is_updown(pos = 's', k_or_d = 'k', k = 5, d = 3, smooth_d = 3)
 
 #변동성 감소 ~ contained
@@ -107,7 +109,6 @@ entry_vkospi_below_n = flip(notrade.vkospi_below_n(0.2))
 date_buy_call = dict(
 bbands = get_date_intersect(df_monthly, entry_bbands_long),
 psar = get_date_intersect(df_monthly, entry_psar_long),
-psar_no_highvol = get_date_intersect(df_monthly, entry_psar_long, notrade.vkospi_above_n(quantile = 0.5)),
 rsi = get_date_intersect(df_monthly, entry_rsi_long),
 stoch = get_date_intersect(df_monthly, entry_stoch_long)
 )
@@ -294,12 +295,15 @@ sell_put_back = {'P': [('delta', -0.2, -2)]}
 
 #%% finalized quick
 
+
+
 put_entry0 = get_date_intersect(df_monthly)
 put_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]))
 put_entry2 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long)
-put_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, notrade.vkospi_below_n(0.2))
-put_entry4 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, notrade.vkospi_below_n(0.2), notrade.vix_curve_invert())
-put_entry5 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, trend_stoch_long)
+put_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_supertrend_long)
+put_entry4 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, trend_supertrend_long)
+
+
 
 #stoch : 과매수상태에서 + 하락하는 경우 1) 첫 하락에서 청산 / 2) 과매수 + 하락상태에서는 진입 X
 stoch_overbought = k200.stoch.is_overtraded(pos = 'l') # 과매수

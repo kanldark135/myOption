@@ -207,6 +207,72 @@ class MyContrarian:
             raise ValueError("l_or_s must be l, s or b")
 
         return res
+    
+    def stoch_rebound(self, pos ='b', k = 5, d = 3, smooth_d = 3):
+
+        '''
+        Contrarian : 전날까지 과매도 / 과매수권에 있다가 + 당일 K가 D를 반대로 돌파하는
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+        stoch['signal'] = np.nan
+
+        # 롱 시그널
+        cond_long_1 = stoch['k'].shift(1) <= 20 # K가 전날 20 밑에 (오늘은 상관 없음)
+        cond_long_2 = stoch['k'] > stoch['d'] # K가 오늘 D를 상향돌파
+        cond_long = cond_long_1 * cond_long_2
+        stoch.loc[cond_long, 'signal'] = 1
+
+        # 숏 시그널
+        cond_short_1 = stoch['k'].shift(1) > 80 # K가 전날 80 위에 (오늘은 상관 없음)
+        cond_short_2 = stoch['k'] < stoch['d'] # K가 오늘 D를 하향돌파
+        cond_short = cond_short_1 * cond_short_2
+        stoch.loc[cond_short, 'signal'] = -1
+
+        if pos == "l": 
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
+        elif pos == "s": 
+            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
+        else:
+            res = stoch[['signal']]      
+
+        return res
+
+    def stoch_rebound2(self, pos ='b', k_or_d = 'k', k = 5, d = 3, smooth_d = 3):
+
+        '''
+        Contrarian : 전날까지 과매도 / 과매수권에 있다가 + 전일대비 지표 하락
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+        stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
+        stoch.columns = ['k', 'd']
+        stoch['signal'] = np.nan
+        
+        # 롱 시그널
+        cond_long_1 = stoch[k_or_d].shift(1) <= 20 # K가 전날 20 밑에 
+        cond_long_2 = stoch[k_or_d].shift(1) > stoch[k_or_d] # K가 전날대비 상승
+        cond_long = cond_long_1 * cond_long_2
+        stoch.loc[cond_long, 'signal'] = 1
+
+        # 숏 시그널
+        cond_short1 = stoch[k_or_d].shift(1) >= 80 # K가 전날 80 위에
+        cond_short2 = stoch[k_or_d].shift(1) < stoch[k_or_d] # K가 전날대비 하락
+        cond_short = cond_short1 * cond_short2
+        stoch.loc[cond_short, 'signal'] = -1
+
+        if pos == "l": 
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
+        elif pos == "s": 
+            res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
+        else:
+            res = stoch[['signal']]      
+
+        return res     
 
     def rsi_rebound(self, pos = 'l', length = 14, scalar = 100):
 
@@ -241,6 +307,28 @@ class MyContrarian:
             raise ValueError("l_or_s must be l, s or b")            
         return res
         
+    def supertrend_rebound(self, pos = 'l' , length = 7, atr_multiplier = 3):
+
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
+        supertrend = self.df.ta.supertrend(length = length, multiplier = atr_multiplier)
+        supertrend.columns = ['trend', 'signal', 'long', 'short'] 
+        res = supertrend[['signal']].loc[supertrend['signal'] != supertrend['signal'].shift(1)]
+
+        if pos == 'l':
+            res = res.mask(res['signal'] == -1, np.nan) 
+        elif pos == 's':
+            res = res.mask(res['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수로 전환
+        elif pos == 'b':
+            res = res
+        else:
+            raise ValueError("l_or_s must be l, s or b")            
+        return res
+    
     def psar_rebound(self, pos = 'l'):
 
         '''
@@ -264,6 +352,7 @@ class MyContrarian:
             raise ValueError("l_or_s must be l, s or b")            
         return res
     
+
 # 2. 정추세 지속 시그널
 @pd.api.extensions.register_dataframe_accessor("trend")
 
@@ -288,11 +377,34 @@ class MyTrend:
         elif pos == "s":
             res = psar[['s']].mask(psar['s'].notna(), 1).rename(columns = {'s' : 'signal'})
 
-        else:
+        elif pos =='b':
             res = pd.DataFrame(data = np.where(psar['l'].notna(), 1, -1), index = psar.index, columns = ['signal'])
 
+        else:
+            raise ValueError('pos must be l / s / b')
         return res
     
+    def supertrend_trend(self, pos = 'b', length = 7, atr_multiplier = 3):
+
+        '''
+        long_only = 'l'
+        short_only = 's'
+        both = 'b'
+        '''
+
+        supertrend = self.df.ta.supertrend(length = length, multiplier = atr_multiplier)
+        supertrend.columns = ['trend', 'signal', 'long', 'short']
+
+        if pos == 'l':
+            res = supertrend[['signal']].mask(supertrend['signal'] == -1, np.nan)
+        elif pos == 's':
+            res = supertrend[['signal']].mask(supertrend['signal'] == 1, np.nan)
+        elif pos == 'b':
+            res = supertrend[['signal']]
+        else:
+            raise ValueError('pos must be l / s / b')
+
+        return res
 
 
 # 3. 매매 안 하는 상황
