@@ -314,10 +314,11 @@ class MyContrarian:
         short_only = 's'
         both = 'b'
         '''
-
+        
         supertrend = self.df.ta.supertrend(length = length, multiplier = atr_multiplier)
         supertrend.columns = ['trend', 'signal', 'long', 'short'] 
-        res = supertrend[['signal']].loc[supertrend['signal'] != supertrend['signal'].shift(1)]
+        bool = supertrend['signal'] != supertrend['signal'].shift(1)
+        res = supertrend[['signal']].where(bool, np.nan)
 
         if pos == 'l':
             res = res.mask(res['signal'] == -1, np.nan) 
@@ -398,7 +399,7 @@ class MyTrend:
         if pos == 'l':
             res = supertrend[['signal']].mask(supertrend['signal'] == -1, np.nan)
         elif pos == 's':
-            res = supertrend[['signal']].mask(supertrend['signal'] == 1, np.nan)
+            res = supertrend[['signal']].mask(supertrend['signal'] == 1, np.nan) * -1 # 숏만 필터링할거면 양수
         elif pos == 'b':
             res = supertrend[['signal']]
         else:
