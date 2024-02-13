@@ -12,7 +12,7 @@ vix = pd.read_pickle('./working_data/df_vix.pkl')
 df_monthly = pd.read_pickle("./working_data/df_monthly.pkl")
 df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")
 
-def get_date_intersect(option_df, *args):
+def get_date_intersect(option_df, *args): # df_1과 df_2가 동시에 적용디는 날짜만 분리
     ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
     dummy = pd.DataFrame(index = option_df.index.unique(), columns = ['signal'])
     dummy['signal'] = 1
@@ -22,7 +22,7 @@ def get_date_intersect(option_df, *args):
     res = dummy.loc[dummy['signal'] == 1].index
     return res
 
-def get_date_union(option_df, *args):
+def get_date_union(option_df, *args): # df_1 또는 df_2 둘중 어느 날이나 포함
     ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
     dummy = pd.DataFrame(index = option_df.index.unique(), columns = ['signal'])
     for i in args:
@@ -30,7 +30,10 @@ def get_date_union(option_df, *args):
 
     res = dummy.loc[dummy['signal'] == 1].index
 
-    return res    
+    return res  
+
+#  df_1 날짜중에 df_2 날짜는 빼고 나머지에 진입 : 별도 함수 대신 get_date_intersect(df_1, flip(df_2)) 로  df_1과 df_2 의 여집합
+
 
 #%% 
 
@@ -59,8 +62,8 @@ class stoch_signal:
         building block 1) 
         과열 / 침체 여부 (20이하/ 80이상)
         default = k 기준으로 over/under 측정?
-        long_only = 'l'
-        short_only = 's'
+        과매도권  = 'l'
+        과매수권 = 's'
         both = 'b'
         '''
         stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
@@ -71,9 +74,9 @@ class stoch_signal:
         stoch['signal'] = stoch['signal'].mask(stoch[k_or_d] > 80, 1) # 과매수권
 
         if pos == "l": 
-            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
-        elif pos == "s": 
             res = stoch[['signal']].mask(stoch['signal'] == 1, np.nan) * -1
+        elif pos == "s": 
+            res = stoch[['signal']].mask(stoch['signal'] == -1, np.nan)
         else:
             res = stoch[['signal']]
         return res
@@ -101,7 +104,6 @@ class stoch_signal:
             res = stoch[['signal']]
 
         return res        
-
 
     def rebound1(self, pos ='b', k = 5, d = 3, smooth_d = 3):
 

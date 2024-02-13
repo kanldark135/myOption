@@ -68,50 +68,8 @@ def sized_cum(df_result, df_sizing):
 
 # entry_date : 온갖 방법으로 entry date 도출
 
-from get_entry_date import get_date_intersect, get_date_union, weekday_entry, MyContrarian, notrade, MyTrend
+from get_entry_date import get_date_intersect, get_date_union, weekday_entry, stoch_signal, rsi_signal, bband_signal, psar_signal, supertrend_signal
 
-#역발상_상승전환 ~ 상승
-entry_stoch_long = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
-entry_bbands_long = k200.contra.through_bbands(pos = 'l', length = 20, std = 2)
-entry_rsi_long = k200.contra.rsi_rebound(pos = 'l', length = 14, scalar = 20)
-entry_psar_long = k200.contra.psar_rebound(pos = 'l')
-
-#모멘텀_상승지속??
-
-trend_psar_long = k200.trend.psar_trend(pos = 'l')
-trend_supertrend_long = k200.trend.supertrend_trend(pos = 'l')
-trend_stoch_long = k200.stoch.is_updown(pos = 'l', k_or_d = 'k', k = 5, d = 3, smooth_d = 3)
-
-#역발상_하락전환 ~ 하락
-entry_stoch_short = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
-entry_bbands_short = k200.contra.through_bbands(pos = 's', length = 20, std = 2)
-entry_rsi_short = k200.contra.rsi_rebound(pos = 's', length = 14, scalar = 20)
-entry_psar_short = k200.contra.psar_rebound(pos = 's')
-
-#모멘텀_하락지속??
-noentry_stoch_short = flip(entry_stoch_short)
-noentry_stoch_long = flip(entry_stoch_long)
-trend_psar_short = k200.trend.psar_trend(pos = 's')
-trend_supertrend_short = k200.trend.supertrend_trend(pos = 's')
-trend_stoch_short = k200.stoch.is_updown(pos = 's', k_or_d = 'k', k = 5, d = 3, smooth_d = 3)
-
-#변동성 감소 ~ contained
-noentry_stoch_limit = flip(entry_stoch_long.combine_first(entry_stoch_short))
-noentry_vix_curve = notrade.vix_curve_invert() #3. vix curve not invert & not 하락추세일때 진입
-noentry_vkospi_below_n = notrade.vkospi_below_n(quantile = 0.2) # vkospi n보다 낮으면 진입 X
-noentry_vkospi_above_n = notrade.vkospi_above_n(quantile = 0.2) # vkospi n보다 높으면 진입 X
-
-#변동성 증대
-entry_vkospi_below_n = flip(notrade.vkospi_below_n(0.2))
-
-
-#콜매수계열 진입 (변동성 낮고 / --------------------------------------------------
-date_buy_call = dict(
-bbands = get_date_intersect(df_monthly, entry_bbands_long),
-psar = get_date_intersect(df_monthly, entry_psar_long),
-rsi = get_date_intersect(df_monthly, entry_rsi_long),
-stoch = get_date_intersect(df_monthly, entry_stoch_long)
-)
 
 # long call
 buy_call =[
@@ -139,19 +97,6 @@ buy_call_backspread = [
 sell_call_front = {'C' : [('delta', 0.4, -1)]}
 buy_call_back = {'C' : [('delta', 0.2, 2)]} 
 
-# 기본적으로 콜 skew 누워서 불리 > skew 따라 이득보려면 아예 매수부터 외가에 구축해야함
-# 콜매도계열 진입
-
-date_sell_call = dict(
-alltime = get_date_intersect(df_monthly),
-bbands = get_date_intersect(df_monthly, entry_bbands_short),
-bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.vkospi_below_n(0.2)),
-psar = get_date_intersect(df_monthly, entry_psar_short),
-psar_no_highvol = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_below_n(quantile = 0.2)),
-rsi = get_date_intersect(df_monthly, entry_rsi_short),
-stoch = get_date_intersect(df_monthly, entry_stoch_short),
-stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.vkospi_below_n(0.2))
-)
 
 sell_call =[
     {'C': [('delta', 0.4, -1)]},
@@ -185,20 +130,6 @@ sell_call_111 = [
 
 #풋매수계열 진입 ---------------
 
-date_buy_put = dict(
-alltime = get_date_intersect(df_monthly),
-lowvol = get_date_intersect(df_monthly, flip(notrade.vkospi_below_n(0.2))),
-bbands = get_date_intersect(df_monthly, entry_bbands_short),
-bbands_no_highvol = get_date_intersect(df_monthly, entry_bbands_short, notrade.vkospi_above_n(0.8)),
-psar = get_date_intersect(df_monthly, entry_psar_short),
-psar_no_highvol = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_above_n(0.8)),
-rsi = get_date_intersect(df_monthly, entry_rsi_short),
-stoch = get_date_intersect(df_monthly, entry_stoch_short),
-stoch_no_highvol = get_date_intersect(df_monthly, entry_stoch_short, notrade.vkospi_above_n(0.8))
-)
-
-# long put
-
 buy_put = [{'P': [('delta', -0.4, 1)]},
             {'P': [('delta', -0.3, 1)]},
             {'P': [('delta', -0.2, 1)]},
@@ -220,22 +151,7 @@ buy_put_backspread =[
     {'P': [('number', 0, -1), ('number', -7.5, 2)]}
 ]
 
-sell_put_front = {'P': [('delta', -0.4, -1)]}
-buy_put_back = {'P': [('delta', -0.2, 2)]} 
 
-date_sell_put = dict(
-weekday = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4])),
-weekday_no_lowvol = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), notrade.vkospi_below_n(0.2)),
-bbands = get_date_intersect(df_monthly, entry_bbands_long),
-bbands_no_lowvol = get_date_intersect(df_monthly, entry_bbands_long, notrade.vkospi_below_n(0.2)),
-psar = get_date_intersect(df_monthly, entry_psar_long),
-psar_no_lowvol = get_date_intersect(df_monthly, entry_psar_long, notrade.vkospi_below_n(0.2)),
-rsi = get_date_intersect(df_monthly, entry_rsi_long),
-stoch = get_date_intersect(df_monthly, entry_stoch_long),
-stoch_no_lowvol = get_date_intersect(df_monthly, entry_stoch_long, notrade.vkospi_below_n(0.2))
-)
-
-# short put
 
 sell_put = [{'P': [('delta', -0.4, -1)]},
             {'P': [('delta', -0.3, -1)]},
@@ -295,195 +211,230 @@ sell_put_back = {'P': [('delta', -0.2, -2)]}
 
 #%% finalized quick
 
+psar_turnup = k200.psar.rebound(pos = 'l')
+psar_turndown = k200.psar.rebound(pos = 's')
+
+psar_trendup = k200.psar.trend(pos = 'l')
+psar_trenddown = k200.psar.trend(pos = 's')
+
+supertrend_turnup = k200.supertrend.rebound(pos = 'l')
+supertrend_turndown = k200.supertrend.rebound(pos = 's')
+
+supertrend_trendup = k200.supertrend.trend(pos = 'l')
+supertrend_trenddown = k200.supertrend.trend(pos = 's')
+
+stoch_turndown = k200.stoch.rebound1(pos = 's', k = 10, d = 5, smooth_d = 5)
+
+put_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0]))
+put_entry2 = get_date_intersect(df_monthly, psar_trendup)
+put_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0]), psar_trendup)
+put_entry4 = get_date_intersect(df_monthly, psar_turnup)
+
+put_entry5 = get_date_intersect(df_monthly, supertrend_trendup)
+put_entry6 = get_date_intersect(df_monthly, weekday_entry(k200, [0]), supertrend_trendup)
+put_entry7 = get_date_intersect(df_monthly, supertrend_turnup)
+
+# #stoch : 과매수상태에서 + 하락하는 경우 1) 첫 하락에서 청산 / 2) 과매수 + 하락상태에서는 진입 X
+# stoch_overbought = k200.stoch.is_overtraded(pos = 'l') # 과매수
+# stoch_going_down = k200.stoch.is_updown(pos = 's') # 하락
+
+# #psar : 하락 반전 : 첫 하락에서 청산 (고정 청산 시그널)
+# psar_going_up = k200.trend.psar_trend(pos = 'l')
+# psar_turn_down = k200.contra.psar_rebound(pos = 's')
 
 
-put_entry0 = get_date_intersect(df_monthly)
-put_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]))
-put_entry2 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long)
-put_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_supertrend_long)
-put_entry4 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_long, trend_supertrend_long)
+# put_entry_stoch = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), flip(stoch_overbought * stoch_going_down))
+# put_entry_comp = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), psar_going_up, flip(stoch_overbought * stoch_going_down))
+
+# put_exit_stoch = get_date_union(df_monthly, stoch_overbought * stoch_going_down)
+# put_exit_comp = get_date_union(df_monthly, stoch_overbought * stoch_going_down, psar_turn_down)
 
 
+# 조정순서
+#1. 진입시점 : 전략별로 다르게 (entry)
+#2. 델타 (어짜피 그게 그거라는 생각, 40으로 고정)
+#3. 손절컷 (-1/-2)
+#4. 조기엑싯 (exit : noexit / ...)
 
-#stoch : 과매수상태에서 + 하락하는 경우 1) 첫 하락에서 청산 / 2) 과매수 + 하락상태에서는 진입 X
-stoch_overbought = k200.stoch.is_overtraded(pos = 'l') # 과매수
-stoch_going_down = k200.stoch.is_updown(pos = 's') # 하락
+# 변동성 사이징은 눈으로 보면서 판단
 
-#psar : 하락 반전 : 첫 하락에서 청산 (고정 청산 시그널)
-psar_going_up = k200.trend.psar_trend(pos = 'l')
-psar_turn_down = k200.contra.psar_rebound(pos = 's')
+put_exit0 = []
+put_exit1 = get_date_intersect(df_monthly, psar_turndown)
+put_exit2 = get_date_union(df_monthly, psar_turndown, stoch_turndown)
 
+put_exit3 = get_date_intersect(df_monthly, supertrend_turndown)
 
-put_entry_stoch = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), flip(stoch_overbought * stoch_going_down))
-put_entry_comp = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), psar_going_up, flip(stoch_overbought * stoch_going_down))
-
-put_exit_stoch = get_date_union(df_monthly, stoch_overbought * stoch_going_down)
-put_exit_comp = get_date_union(df_monthly, stoch_overbought * stoch_going_down, psar_turn_down)
-
-put_exit = get_date_intersect(df_monthly, psar_turn_down)
 put_stop = 1
-
+profit_take = 0.5
+stop_loss = -1
 # put_exit = []
 
 dte_range = [42, 70]
 
-res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = put_entry_comp,
+res1 = backtest.get_vertical_trade_result(df_monthly,
+                                              entry_dates = put_entry1,
                                               trade_spec = sell_put[0],
                                               dte_range = dte_range,
-                                              exit_dates = put_exit_stoch,
+                                              exit_dates = put_exit2,
                                               stop_dte = put_stop,
                                               is_complex_strat = False,
-                                              profit_take = 0.8,
-                                              stop_loss = -1)
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
 
-res_psar_up = backtest.get_vertical_trade_result(df_monthly,
+res2 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry2,
                                               trade_spec = sell_put[0],
                                               dte_range = dte_range,
-                                              exit_dates = put_exit,
+                                              exit_dates = put_exit2,
                                               stop_dte = put_stop,
                                               is_complex_strat = False,
-                                              profit_take = 0.8,
-                                              stop_loss = -1)
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
 
-# res_psar_up_novix20 = backtest.get_vertical_trade_result(df_monthly,
-#                                               entry_dates = put_entry3,
-#                                               trade_spec = sell_put[0],
-#                                               dte_range = dte_range,
-#                                               exit_dates = put_exit,
-#                                               stop_dte = put_stop,
-#                                               is_complex_strat = False,
-#                                               profit_take = 0.5,
-#                                               stop_loss = -1)
-
-# res_psar_up_novix20_noinvert = backtest.get_vertical_trade_result(df_monthly,
-#                                               entry_dates = put_entry4,
-#                                               trade_spec = sell_put[0],
-#                                               dte_range = dte_range,
-#                                               exit_dates = put_exit,
-#                                               stop_dte = put_stop,
-#                                               is_complex_strat = False,
-#                                               profit_take = 0.5,
-#                                               stop_loss = -1)
-
-# res_psar_stoch = backtest.get_vertical_trade_result(df_monthly,
-#                                               entry_dates = put_entry5,
-#                                               trade_spec = sell_put[0],
-#                                               dte_range = dte_range,
-#                                               exit_dates = put_exit,
-#                                               stop_dte = put_stop,
-#                                               is_complex_strat = False,
-#                                               profit_take = 0.5,
-#                                               stop_loss = -1)
-
-
-# res_calendar  = backtest.get_calendar_trade_result(df_monthly,
-#                                         entry_dates = get_date_intersect(df_monthly, notrade.no_vkospi_below_n(0.2), weekday_entry(df_k200, [0, 4])),
-#                                         front_spec = buy_put_front,
-#                                         back_spec = sell_put_back,
-#                                         front_dte = [14, 35],
-#                                         back_dte = [28, 77],
-#                                         exit_dates = [],
-#                                         is_complex_strat = True,
-#                                         profit_take = 1,
-#                                         stop_loss = -2)
-
-#%% BSH
-
-
-entry0 = get_date_intersect(df_monthly)
-bsh_entry1 = get_date_intersect(df_monthly, trend_psar_short, weekday_entry(df_monthly, [0, 4]))
-bsh_entry2 = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_above_n(0.8))
-bsh_exit = get_date_intersect(df_monthly, k200.contra.psar_rebound(pos = 's'))
-
-# put_exit = []
-
-# trade = {"P" : [('delta', -0.3, -1), ('delta', -0.1, 1), ('delta', -0.03, 10)]}
-trade = {"P" : [('number', 0, -1), ('number', -7.5, 2)]}
-dte_range = [42, 70]
-stop_bsh = 14
-
-res_bsh = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = bsh_entry2,
-                                              trade_spec = trade,
+res3 = backtest.get_vertical_trade_result(df_monthly,
+                                              entry_dates = put_entry3,
+                                              trade_spec = sell_put[0],
                                               dte_range = dte_range,
-                                              exit_dates = [],
-                                              stop_dte = stop_bsh,
-                                              is_complex_strat = True,
-                                              profit_take = 10,
-                                              stop_loss = -2)
+                                              exit_dates = put_exit2,
+                                              stop_dte = put_stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+res4 = backtest.get_vertical_trade_result(df_monthly,
+                                              entry_dates = put_entry4,
+                                              trade_spec = sell_put[0],
+                                              dte_range = dte_range,
+                                              exit_dates = put_exit2,
+                                              stop_dte = put_stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+# #%% BSH
 
 
-#%% finalized quick _addhoc for call
+# entry0 = get_date_intersect(df_monthly)
+# bsh_entry1 = get_date_intersect(df_monthly, trend_psar_short, weekday_entry(df_monthly, [0, 4]))
+# bsh_entry2 = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_above_n(0.8))
+# bsh_exit = get_date_intersect(df_monthly, k200.contra.psar_rebound(pos = 's'))
 
-entry0 = get_date_intersect(df_monthly)
-call_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]))
-call_entry2 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_short)
-call_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), trend_psar_short, notrade.vkospi_above_n(0.8))
-call_entry4 = get_date_intersect(df_monthly, entry_psar_short)
-call_entry5 = get_date_intersect(df_monthly, entry_psar_short, notrade.vkospi_above_n(0.8))
+# # put_exit = []
 
-call_exit = [get_date_intersect(df_monthly, k200.contra.psar_rebound(pos = 'l'))]
+# # trade = {"P" : [('delta', -0.3, -1), ('delta', -0.1, 1), ('delta', -0.03, 10)]}
+# trade = {"P" : [('number', 0, -1), ('number', -7.5, 2)]}
+# dte_range = [42, 70]
+# stop_bsh = 14
+
+# res_bsh = backtest.get_vertical_trade_result(df_monthly,
+#                                               entry_dates = bsh_entry2,
+#                                               trade_spec = trade,
+#                                               dte_range = dte_range,
+#                                               exit_dates = [],
+#                                               stop_dte = stop_bsh,
+#                                               is_complex_strat = True,
+#                                               profit_take = 10,
+#                                               stop_loss = -2)
+
+
+#%% finalized quick
+
+psar_turnup = k200.psar.rebound(pos = 'l')
+psar_turndown = k200.psar.rebound(pos = 's')
+
+psar_trendup = k200.psar.trend(pos = 'l')
+psar_trenddown = k200.psar.trend(pos = 's')
+
+supertrend_turnup = k200.supertrend.rebound(pos = 'l')
+supertrend_turndown = k200.supertrend.rebound(pos = 's')
+
+supertrend_trendup = k200.supertrend.trend(pos = 'l')
+supertrend_trenddown = k200.supertrend.trend(pos = 's')
+
+stoch_turnup = k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
+stoch_overbought = k200.stoch.is_overtraded(pos = 's')
+
+call_entry1 = get_date_intersect(df_monthly, weekday_entry(k200, [0]))
+call_entry2 = get_date_intersect(df_monthly, psar_trenddown)
+call_entry3 = get_date_intersect(df_monthly, weekday_entry(k200, [0]), psar_trenddown)
+call_entry4 = get_date_intersect(df_monthly, stoch_turnup)
+call_entry5 = get_date_intersect(df_monthly, psar_turnup)
+
+call_entry5 = get_date_intersect(df_monthly, supertrend_trenddown)
+call_entry6 = get_date_intersect(df_monthly, weekday_entry(k200, [0]), supertrend_trenddown)
+call_entry7 = get_date_intersect(df_monthly, supertrend_turndown)
+
+# #stoch : 과매수상태에서 + 하락하는 경우 1) 첫 하락에서 청산 / 2) 과매수 + 하락상태에서는 진입 X
+# stoch_overbought = k200.stoch.is_overtraded(pos = 'l') # 과매수
+# stoch_going_down = k200.stoch.is_updown(pos = 's') # 하락
+
+# #psar : 하락 반전 : 첫 하락에서 청산 (고정 청산 시그널)
+# psar_going_up = k200.trend.psar_trend(pos = 'l')
+# psar_turn_down = k200.contra.psar_rebound(pos = 's')
+
+
+# put_entry_stoch = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), flip(stoch_overbought * stoch_going_down))
+# put_entry_comp = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), psar_going_up, flip(stoch_overbought * stoch_going_down))
+
+# put_exit_stoch = get_date_union(df_monthly, stoch_overbought * stoch_going_down)
+# put_exit_comp = get_date_union(df_monthly, stoch_overbought * stoch_going_down, psar_turn_down)
+
+
+# 조정순서
+#1. 진입시점 #2. 델타 #3. 손절컷 #4. 조기엑싯
+
+# 변동성 사이징은 눈으로 보면서 판단
+
+call_exit0 = []
+call_exit1 = get_date_intersect(df_monthly, psar_turnup)
+call_exit2 = get_date_union(df_monthly, psar_turnup, stoch_turnup)
+
+call_exit3 = get_date_intersect(df_monthly, supertrend_turndown)
 
 call_stop = 1
-
+profit_take = 0.5
+stop_loss = -1
 # call_exit = []
 
 dte_range = [42, 70]
 
 res1 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = call_entry1,
+                                              entry_dates = call_entry4,
                                               trade_spec = sell_call[0],
                                               dte_range = dte_range,
-                                              exit_dates = call_exit,
+                                              exit_dates = call_exit0,
                                               stop_dte = call_stop,
                                               is_complex_strat = False,
-                                              profit_take = 0.5,
-                                              stop_loss = -1)
-
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
 res2 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = call_entry2,
+                                              entry_dates = call_entry4,
                                               trade_spec = sell_call[0],
                                               dte_range = dte_range,
-                                              exit_dates = call_exit,
+                                              exit_dates = call_exit2,
                                               stop_dte = call_stop,
                                               is_complex_strat = False,
-                                              profit_take = 0.5,
-                                              stop_loss = -1)
-
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
 res3 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = call_entry3,
-                                              trade_spec = sell_call[2],
+                                              entry_dates = call_entry5,
+                                              trade_spec = sell_call[0],
                                               dte_range = dte_range,
-                                              exit_dates = call_exit,
+                                              exit_dates = call_exit2,
                                               stop_dte = call_stop,
                                               is_complex_strat = False,
-                                              profit_take = 0.5,
-                                              stop_loss = -1)
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
 
 res4 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = call_entry4,
-                                              trade_spec = sell_call[2],
-                                              dte_range = dte_range,
-                                              exit_dates = call_exit,
-                                              stop_dte = call_stop,
-                                              is_complex_strat = False,
-                                              profit_take = 0.5,
-                                              stop_loss = -1)
-
-res5 = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = call_entry5,
-                                              trade_spec = sell_call[2],
+                                              trade_spec = sell_call[0],
                                               dte_range = dte_range,
-                                              exit_dates = call_exit,
+                                              exit_dates = call_exit2,
                                               stop_dte = call_stop,
                                               is_complex_strat = False,
-                                              profit_take = 0.5,
-                                              stop_loss = -1)
-
-
-
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
 
 #%% finalized quick _addhoc for call
 
