@@ -187,7 +187,7 @@ class bband_signal:
         res = pd.DataFrame(index = self.df.index, columns = ['signal'])
 
         bbands = self.df.ta.bbands(length, std)
-        bbands.columns = ['low', 'mid', 'up', 'width', 'prob']
+        bbands.columns = ['low', 'mid', 'high', 'width', 'prob']
         bbands['signal'] = np.nan
 
         # 롱 시그널
@@ -220,7 +220,7 @@ class bband_signal:
         res = pd.DataFrame(index = self.df.index, columns = ['signal'])
 
         bbands = self.df.ta.bbands(length, std)
-        bbands.columns = ['low', 'mid', 'up', 'width', 'prob']
+        bbands.columns = ['low', 'mid', 'high', 'width', 'prob']
         bbands['signal'] = np.nan
 
         # 볼밴 하방돌파 시점 -> 롱

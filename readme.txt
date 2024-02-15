@@ -6,7 +6,7 @@
     - TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 / 직접 쓰기 불편함
     - FinanceDataReader : 
     - riskfolio : 위험지표 및 포트폴리오 최적화
-
+    * option specific libraries : optionlab
 
 
 ㅇ 진입조건
