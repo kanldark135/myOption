@@ -27,6 +27,9 @@ def flip(df):
 
 def sum(df_result):
     res = df_result['summary']
+    dummy = cum(df_result)
+    res['maxret'] = dummy['cumret'].max()
+    res['mdd'] = dummy['drawdown'].min()
     return res
 
 def cum(df_result):
@@ -51,12 +54,7 @@ def table(df_result):
     res = df_result['all_trades'].sort_values('final_ret', ascending = False)
     return res
 
-def to_csv(df_result):
-    res = df_result['daily_ret']
-    res.to_csv("./daily_ret.csv")
-
 def all(df_result):
-    to_csv(df_result)
     return sum(df_result), table(df_result), print(cum(df_result))
 
 def vol_based_sizing(vkospi, multiplier = 1, vol_percentile = [0.5, 0.75]):
@@ -67,11 +65,15 @@ def vol_based_sizing(vkospi, multiplier = 1, vol_percentile = [0.5, 0.75]):
     res = res.astype('int64')
     return res
 
-def sized_cum(df_result, df_sizing):
+def scale(df_result, df_sizing):
     a = (df_result['all_trades']['trade_ret'] * df_sizing).dropna()
     aa = pd.concat(a.tolist(), axis = 1, ignore_index = True)
     aaa = aa.sum(axis = 1)
     res = aaa.cumsum()
+    res = pd.DataFrame(res, columns = ['cumret'])
+    res['drawdown'] = res - res.cummax()
+    print(f"mdd : {res['drawdown'].min()}, maxret : {res['cumret'].max()}")
+    res.to_csv('./scaled_ret.csv')
     return res
 
 # entry_date : 온갖 방법으로 entry date 도출
@@ -220,23 +222,29 @@ sell_put_back = {'P': [('delta', -0.2, -2)]}
 
 psar_turnup = k200.psar.rebound(pos = 'l')
 psar_turndown = k200.psar.rebound(pos = 's')
-
 psar_trendup = k200.psar.trend(pos = 'l')
 psar_trenddown = k200.psar.trend(pos = 's')
 
-supertrend_turnup = k200.supertrend.rebound(pos = 'l')
-supertrend_turndown = k200.supertrend.rebound(pos = 's')
+supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier = 3)
+supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
 
-supertrend_trendup = k200.supertrend.trend(pos = 'l')
-supertrend_trenddown = k200.supertrend.trend(pos = 's')
-
-bbands_turnup = k200.bbands.through_bbands(pos = 'l')
-bbands_turndown = k200.bbands.through_bbands(pos = 's')
+bbands_turnup1 = k200.bbands.through_bbands(pos = 'l', length = 20, std = 2)
+bbands_turndown1 = k200.bbands.through_bbands(pos = 's', length = 20, std = 2)
+bbands_turnup2 = k200.bbands.through_bbands(pos = 'l', length = 60, std = 2)
+bbands_turndown2 = k200.bbands.through_bbands(pos = 's', length = 60, std = 2)
 
 stoch_turndown1 = k200.stoch.rebound1(pos = 's', k = 10, d = 5, smooth_d = 5)
 stoch_turndown2 = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
+stoch_turnup1= k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
+stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
+
+rsi_turnup = k200.rsi.rebound(pos = 'l')
+rsi_turndown = k200.rsi.rebound(pos = 's')
 
 no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
 no_highvol = notrade.vkospi_above_n(0.8)
 
 # put_entry_stoch = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), flip(stoch_overbought * stoch_going_down))
@@ -255,22 +263,21 @@ no_highvol = notrade.vkospi_above_n(0.8)
 put_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)
 put_entry4 = get_date_intersect(df_monthly, supertrend_turnup)
 put_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trendup)
-put_entry4 = get_date_intersect(df_monthly, stoch_turndown2)
-put_entry5 = get_date_intersect(df_monthly, supertrend_turndown)
+put_entry7 = get_date_intersect(df_monthly, stoch_turnup1, no_highvol)
 
 put_exit1 = []
-put_exit2 = get_date_intersect(df_monthly, psar_turnup)
-put_exit3 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))
-put_exit4 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
+put_exit2 = get_date_intersect(df_monthly, psar_turndown)
+put_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))
+put_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 put_stop = 1
 profit_take = 0.25
-stop_loss = -0.25
+stop_loss = -2
 dte_range = [42, 70]
 
 res1 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = put_entry1,
-                                              trade_spec = sell_put[2],
+                                              entry_dates = put_entry2,
+                                              trade_spec = sell_put[0],
                                               dte_range = dte_range,
                                               exit_dates = put_exit1,
                                               stop_dte = put_stop,
@@ -285,21 +292,28 @@ psar_turndown = k200.psar.rebound(pos = 's')
 psar_trendup = k200.psar.trend(pos = 'l')
 psar_trenddown = k200.psar.trend(pos = 's')
 
-supertrend_turnup = k200.supertrend.rebound(pos = 'l')
-supertrend_turndown = k200.supertrend.rebound(pos = 's')
-supertrend_trendup = k200.supertrend.trend(pos = 'l')
-supertrend_trenddown = k200.supertrend.trend(pos = 's')
+supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier = 3)
+supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
 
-bbands_turnup = k200.bbands.through_bbands(pos = 'l')
-bbands_turndown = k200.bbands.through_bbands(pos = 's')
-
-rsi_turnup = k200.rsi.rebound(pos = 'l')
-rsi_turndown = k200.rsi.rebound(pos = 's')
+bbands_turnup1 = k200.bbands.through_bbands(pos = 'l', length = 20, std = 2)
+bbands_turndown1 = k200.bbands.through_bbands(pos = 's', length = 20, std = 2)
+bbands_turnup2 = k200.bbands.through_bbands(pos = 'l', length = 60, std = 2)
+bbands_turndown2 = k200.bbands.through_bbands(pos = 's', length = 60, std = 2)
 
 stoch_turndown1 = k200.stoch.rebound1(pos = 's', k = 10, d = 5, smooth_d = 5)
 stoch_turndown2 = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
 stoch_turnup1= k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
 stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
+
+rsi_turnup = k200.rsi.rebound(pos = 'l')
+rsi_turndown = k200.rsi.rebound(pos = 's')
+
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
+
 
 # put_entry_stoch = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), flip(stoch_overbought * stoch_going_down))
 # put_entry_comp = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), psar_going_up, flip(stoch_overbought * stoch_going_down))
@@ -315,14 +329,15 @@ stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
 #5. 익손절 기준금액 
 #6. 포지션 규모 (=사이징)
 
-call_entry1 = get_date_intersect(df_monthly, psar_turnup)
-call_entry2 = get_date_intersect(df_monthly, bbands_turnup)
-call_entry3 = get_date_intersect(df_monthly, stoch_turnup1)
-call_entry4 = get_date_intersect(df_monthly, stoch_turnup2)
-call_entry5 = get_date_intersect(df_monthly, supertrend_turnup)
-call_entry6 = get_date_intersect(df_monthly, rsi_turnup)
-
-dte_range = [7, 35]
+call_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)
+call_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trendup)
+call_entry3 = get_date_intersect(df_monthly, psar_turnup)
+call_entry4 = get_date_intersect(df_monthly, supertrend_turnup)
+call_entry5 = get_date_intersect(df_monthly, bbands_turnup1)
+call_entry6 = get_date_intersect(df_monthly, bbands_turnup2)
+call_entry7 = get_date_intersect(df_monthly, stoch_turnup1)
+call_entry8 = get_date_intersect(df_monthly, stoch_turnup2)
+call_entry9 = get_date_intersect(df_monthly, rsi_turnup)
 
 call_exit1 = []
 call_exit2 = get_date_intersect(df_monthly, psar_turndown)
@@ -330,14 +345,15 @@ call_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos =
 call_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 call_stop = 1
-profit_take = 4
+profit_take = 0.5
 stop_loss = -0.25
+dte_range = [7, 35]
 
 res1 = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = call_entry5,
-                                              trade_spec = buy_call[0],
-                                              dte_range = [42, 70],
-                                              exit_dates = call_exit4,
+                                              entry_dates = call_entry6,
+                                              trade_spec = buy_call[2],
+                                              dte_range = dte_range,
+                                              exit_dates = call_exit1,
                                               stop_dte = call_stop,
                                               is_complex_strat = False,
                                               profit_take = profit_take,
