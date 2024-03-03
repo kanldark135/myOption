@@ -161,8 +161,6 @@ buy_put_backspread =[
     {'P': [('number', 0, -1), ('number', -7.5, 2)]}
 ]
 
-
-
 sell_put = [{'P': [('delta', -0.4, -1)]},
             {'P': [('delta', -0.3, -1)]},
             {'P': [('delta', -0.2, -1)]},
@@ -195,30 +193,75 @@ sell_put_111 = [
 buy_put_front = {'P': [('delta', -0.4, 1)]}
 sell_put_back = {'P': [('delta', -0.2, -2)]} 
 
+#%% weekly_strangle_test
 
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
 
-# #뉴트럴매도 진입 : 변동성 높고 / 위아래 방향성 아닌 경우--------------------------------------------------
-# date_neutral = dict(
-# date_neutral1 = get_date_intersect(df_monthly),
-# date_neutral2 = get_date_intersect(df_monthly, entry_weekday),
-# date_neutral3 = get_date_intersect(df_monthly, entry_weekday, noentry_vkospi_below_n),
-# date_neutral4 = get_date_intersect(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve),
-# date_neutral5 = get_date_intersect(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_limit),
-# date_neutral6 = get_date_intersect(df_monthly, entry_weekday, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short)
-# )
+# 조정순서
+#1. 진입시점 (put_entry) : 전략별로 다르게 (entry)
+#2. 델타 (trade[0, 1, 2...] :어짜피 그게 그거라는 생각, 40으로 고정)
+#3. 손절컷 (stop_loss : -1/-2)6y 
+#4. 조기엑싯 (exit : noexit / ...)
+# 변동성 사이징은 눈으로 보면서 판단
 
-# #----------------------------------------------------
-# entry_weekday_w = weekday_entry(df_k200, [3, 4]) # 매주 목/금요일 진입 
-# date_neutralw = dict(
-# date_neutralw1 = get_date_intersect(df_weekly),
-# date_neutralw2 = get_date_intersect(df_weekly, entry_weekday_w),
-# date_neutralw3 = get_date_intersect(df_weekly, entry_weekday_w, noentry_vkospi_below_n),
-# date_neutralw4 = get_date_intersect(df_weekly, entry_weekday_w, noentry_vkospi_below_n, noentry_vix_curve),
-# date_neutralw5 = get_date_intersect(df_weekly, entry_weekday_w, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_limit),
-# date_neutralw6 = get_date_intersect(df_weekly, entry_weekday_w, noentry_vkospi_below_n, noentry_vix_curve, noentry_stoch_short),
-# )
+strangle = {'C' : [('number', 10, -1)], "P" : [('number', -10, -1)]}
 
-#%% finalized quick
+entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))
+
+exit1 = []
+
+stop = 1
+profit_take = 0.5
+stop_loss = -2
+dte_range = [0, 9]
+
+res = backtest.get_vertical_trade_result(df_weekly,
+                                              entry_dates = entry1,
+                                              trade_spec = strangle,
+                                              dte_range = dte_range,
+                                              exit_dates = exit1,
+                                              stop_dte = stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+#%% strangle_test
+
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
+
+# 조정순서
+#1. 진입시점 (put_entry) : 전략별로 다르게 (entry)
+#2. 델타 (trade[0, 1, 2...] :어짜피 그게 그거라는 생각, 40으로 고정)
+#3. 손절컷 (stop_loss : -1/-2)6y 
+#4. 조기엑싯 (exit : noexit / ...)
+# 변동성 사이징은 눈으로 보면서 판단
+
+strangle = {'C' : [('delta', 0.50, -1)], "P" : [('delta', -0.50, -1)]}
+
+entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_highvol)
+
+exit1 = []
+
+stop = 0
+profit_take = 0.1
+stop_loss = -0.2
+dte_range = [42, 70]
+
+res = backtest.get_vertical_trade_result(df_monthly,
+                                              entry_dates = entry1,
+                                              trade_spec = strangle,
+                                              dte_range = dte_range,
+                                              exit_dates = exit1,
+                                              stop_dte = stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+#%% put_test
 
 psar_turnup = k200.psar.rebound(pos = 'l')
 psar_turndown = k200.psar.rebound(pos = 's')
@@ -246,12 +289,6 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 no_vixinvert = notrade.vix_curve_invert()
 no_lowvol = notrade.vkospi_below_n(0.2)
 no_highvol = notrade.vkospi_above_n(0.8)
-
-# put_entry_stoch = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), flip(stoch_overbought * stoch_going_down))
-# put_entry_comp = get_date_intersect(df_monthly, weekday_entry(k200, [0, 4]), psar_going_up, flip(stoch_overbought * stoch_going_down))
-
-# put_exit_stoch = get_date_union(df_monthly, stoch_overbought * stoch_going_down)
-# put_exit_comp = get_date_union(df_monthly, stoch_overbought * stoch_going_down, psar_turn_down)
 
 # 조정순서
 #1. 진입시점 (put_entry) : 전략별로 다르게 (entry)
@@ -285,7 +322,7 @@ res1 = backtest.get_vertical_trade_result(df_monthly,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
-#%% finalized quick
+#%% callside_test
 
 psar_turnup = k200.psar.rebound(pos = 'l')
 psar_turndown = k200.psar.rebound(pos = 's')
@@ -359,6 +396,170 @@ res1 = backtest.get_vertical_trade_result(df_monthly,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
+
+#%% 스트랭글
+   
+from itertools import product
+import time
+
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
+
+#1. 진입조건
+entry_condition = [
+    dict(strangle_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]))),
+    dict(strangle_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0, 4]))),
+    dict(strangle_entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_vixinvert)),
+    dict(strangle_entry4 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol)),
+    dict(strangle_entry5 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_highvol))
+]
+
+#2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
+
+sell_strangle =[
+    {'C': [('delta', 0.3, -1)], "P" : [('delta', -0.3, -1)]},
+    {'C': [('delta', 0.15, -1)], "P" : [('delta', -0.15, -1)]},
+    {'C': [('delta', 0.06, -1)], "P" : [('delta', -0.07, -1)]}
+]
+
+#3. 어떤 만기 종목
+dte_range = [
+            [7, 35], 
+            [42, 70]
+             ]
+
+#4. 청산 조건
+exit_condition = [
+    dict(put_exit1 = [])
+    ]
+
+#5. 익절 
+profit_target = [0.1, 0.25, 0.5, 0.8]
+#6. 손절
+stop_loss = [-0.25, -0.5, -1, -2]
+
+comb = list(product(entry_condition, sell_strangle, dte_range, exit_condition, profit_target, stop_loss))
+
+for i in range(0, len(comb), 100):
+
+    df_res = dict()
+    chunk = comb[i:i+100]
+
+    for entry, trade, dte, exit, profit_target, stop_loss in chunk:
+        start = time.time()
+        entry_name = list(entry.keys())[0]
+        entry_value = list(entry.values())[0]
+        exit_name = list(exit.keys())[0]
+        exit_value = list(exit.values())[0]
+        res = backtest.get_vertical_trade_result(df_monthly,
+                                entry_dates = entry_value,
+                                trade_spec = trade,
+                                dte_range = dte,
+                                exit_dates = exit_value,
+                                stop_dte = 1,
+                                is_complex_strat = False,
+                                profit_take = profit_target,
+                                stop_loss = stop_loss)
+        result = dict(
+        n = sum(res)['n'],
+        win = sum(res)['win'],
+        totalret = sum(res)['total_ret'],
+        maxret = cum(res)['cumret'].max(),
+        mdd = cum(res)['drawdown'].min()
+        )
+
+        df_res[f"{entry_name}_{trade}_{dte}_{exit_name}_{profit_target}_{stop_loss}"] = result
+        end = time.time()
+        print(start - end)
+        
+    csv_res = pd.DataFrame(df_res).T
+    csv_res.to_csv(f"./res_dump_buy_call/{i}_{i} + 100.csv")
+    del df_res
+    del chunk
+
+
+#%% 스트랭글 위클리
+   
+from itertools import product
+import time
+
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
+
+#1. 진입조건
+entry_condition = [
+    dict(strangle_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))),
+    dict(strangle_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4, 1]))),
+    dict(strangle_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_vixinvert)),
+    dict(strangle_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_lowvol)),
+    dict(strangle_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_highvol))
+]
+
+#2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
+
+sell_strangle =[
+    {'C': [('number', 10, -1)], "P" : [('number', -10, -1)]},
+    {'C': [('number', 7.5, -1)], "P" : [('number', -7.5, -1)]},
+    {'C': [('delta', 0.10, -1)], "P" : [('delta', -0.10, -1)]}
+]
+
+#3. 어떤 만기 종목
+dte_range = [
+            [1, 9],
+             ]
+
+#4. 청산 조건
+exit_condition = [
+    dict(xit1 = [])
+    ]
+
+#5. 익절 
+profit_target = [0.1, 0.25, 0.5, 0.8]
+#6. 손절
+stop_loss = [-0.25, -0.5, -1, -2]
+
+comb = list(product(entry_condition, sell_strangle, dte_range, exit_condition, profit_target, stop_loss))
+
+for i in range(0, len(comb), 100):
+
+    df_res = dict()
+    chunk = comb[i:i+100]
+
+    for entry, trade, dte, exit, profit_target, stop_loss in chunk:
+        start = time.time()
+        entry_name = list(entry.keys())[0]
+        entry_value = list(entry.values())[0]
+        exit_name = list(exit.keys())[0]
+        exit_value = list(exit.values())[0]
+        res = backtest.get_vertical_trade_result(df_weekly,
+                                entry_dates = entry_value,
+                                trade_spec = trade,
+                                dte_range = dte,
+                                exit_dates = exit_value,
+                                stop_dte = 1,
+                                is_complex_strat = False,
+                                profit_take = profit_target,
+                                stop_loss = stop_loss)
+        result = dict(
+        n = sum(res)['n'],
+        win = sum(res)['win'],
+        totalret = sum(res)['total_ret'],
+        maxret = cum(res)['cumret'].max(),
+        mdd = cum(res)['drawdown'].min()
+        )
+
+        df_res[f"{entry_name}_{trade}_{dte}_{exit_name}_{profit_target}_{stop_loss}"] = result
+        end = time.time()
+        print(start - end)
+        
+    csv_res = pd.DataFrame(df_res).T
+    csv_res.to_csv(f"./res_dump_buy_call/{i}_{i} + 100.csv")
+    del df_res
+    del chunk
+
+
 #%% 콜매수
    
 from itertools import product
@@ -403,11 +604,12 @@ entry_condition = [
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 
-buy_call =[
-    {'C': [('delta', 0.4, 1)]},
-    # {'C': [('delta', 0.3, 1)]},
-    {'C': [('delta', 0.2, 1)]},
-    # {'C': [('delta', 0.1, 1)]}
+buy_call_backspread = [
+    {'C' : [('delta', 0.5, -1), ('delta', 0.25, 2)]},
+    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 2)]},
+    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 3)]},
+    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]},
+    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 3)]}
 ]
 
 #3. 어떤 만기 종목
@@ -418,10 +620,10 @@ dte_range = [
 
 #4. 청산 조건
 exit_condition = [
-    dict(put_exit1 = []),
-    dict(put_exit2 = get_date_intersect(df_monthly, psar_turndown)),
-    dict(put_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))),
-    dict(put_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5)))
+    dict(call_exit1 = []),
+    dict(call_exit2 = get_date_intersect(df_monthly, psar_turndown)),
+    dict(call_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))),
+    dict(call_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5)))
 ]
 
 #5. 익절 
