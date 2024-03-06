@@ -206,16 +206,16 @@ no_highvol = notrade.vkospi_above_n(0.8)
 #4. 조기엑싯 (exit : noexit / ...)
 # 변동성 사이징은 눈으로 보면서 판단
 
-strangle = {'C' : [('number', 10, -1)], "P" : [('number', -10, -1)]}
+strangle = {'C' : [('number', 7.5, -1)], "P" : [('number', -7.5, -1)]}
 
-entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))
+entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0, 4]))
 
 exit1 = []
 
 stop = 1
 profit_take = 0.5
-stop_loss = -2
-dte_range = [0, 9]
+stop_loss = -0.5
+dte_range = [1, 9]
 
 res = backtest.get_vertical_trade_result(df_weekly,
                                               entry_dates = entry1,
@@ -240,15 +240,15 @@ no_highvol = notrade.vkospi_above_n(0.8)
 #4. 조기엑싯 (exit : noexit / ...)
 # 변동성 사이징은 눈으로 보면서 판단
 
-strangle = {'C' : [('delta', 0.50, -1)], "P" : [('delta', -0.50, -1)]}
+strangle = {'C' : [('delta', 0.06, -1)], "P" : [('delta', -0.07, -1)]}
 
-entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_highvol)
+entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0, 4]), no_vixinvert, no_lowvol)
 
 exit1 = []
 
 stop = 0
 profit_take = 0.1
-stop_loss = -0.2
+stop_loss = -0.25
 dte_range = [42, 70]
 
 res = backtest.get_vertical_trade_result(df_monthly,
@@ -490,16 +490,15 @@ no_highvol = notrade.vkospi_above_n(0.8)
 
 #1. 진입조건
 entry_condition = [
-    dict(strangle_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))),
-    dict(strangle_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4, 1]))),
-    dict(strangle_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_vixinvert)),
-    dict(strangle_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_lowvol)),
-    dict(strangle_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_highvol))
+    # dict(strangle_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))),
+    dict(strangle_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0, 4])))
+    # dict(strangle_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_vixinvert)),
+    # dict(strangle_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_lowvol)),
+    # dict(strangle_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_highvol))
 ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
-
-sell_strangle =[
+sell_weekly_strangle =[
     {'C': [('number', 10, -1)], "P" : [('number', -10, -1)]},
     {'C': [('number', 7.5, -1)], "P" : [('number', -7.5, -1)]},
     {'C': [('delta', 0.10, -1)], "P" : [('delta', -0.10, -1)]}
@@ -512,7 +511,7 @@ dte_range = [
 
 #4. 청산 조건
 exit_condition = [
-    dict(xit1 = [])
+    dict(exit1 = [])
     ]
 
 #5. 익절 
@@ -520,7 +519,7 @@ profit_target = [0.1, 0.25, 0.5, 0.8]
 #6. 손절
 stop_loss = [-0.25, -0.5, -1, -2]
 
-comb = list(product(entry_condition, sell_strangle, dte_range, exit_condition, profit_target, stop_loss))
+comb = list(product(entry_condition, sell_weekly_strangle, dte_range, exit_condition, profit_target, stop_loss))
 
 for i in range(0, len(comb), 100):
 
