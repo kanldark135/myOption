@@ -9,23 +9,10 @@
     * option specific libraries : optionlab
 
 
-ㅇ 진입조건
-
-역발상
-- stoch 전환
-- psar 전환
-- 볼밴터치
-- rsi 전환
-
-추세
-- psar유지
-- 
-진입 : psar + supertrend 둘다 동방향일때만 진입
-미진입 : supertrend 는 숏인데 psar 반전 => 아무것도 안 함
-청산 : 
-
-
-
+ㅇ 아이디어
+1) 스트랭글 변형-> 급락 직후 반등가능성이 더 높을경우 스트랭글이 아닌 "jade lizard" 로 적어도 콜방향에서 이중으로 조지는 일 없게?
+2) 콜풋 스큐 심할때 (콜개똥값) -> 풋과매도 + 선물매도로 유사 수익 구조 구축하면서 풋 IV만 harvest
+3) 백스프레드 위클리로 하는것도 테스트
 
 ㅇ 전략
 
