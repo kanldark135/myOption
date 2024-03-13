@@ -253,6 +253,77 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
+#%% weekly_put_test
+
+psar_turnup = k200.psar.rebound(pos = 'l')
+psar_turndown = k200.psar.rebound(pos = 's')
+
+psar_trendup = k200.psar.trend(pos = 'l')
+psar_trenddown = k200.psar.trend(pos = 's')
+
+supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier =
+                                               3)
+supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
+
+bbands_turnup1 = k200.bbands.through_bbands(pos = 'l', length = 20, std = 2)
+bbands_turndown1 = k200.bbands.through_bbands(pos = 's', length = 20, std = 2)
+bbands_turnup2 = k200.bbands.through_bbands(pos = 'l', length = 60, std = 2)
+bbands_turndown2 = k200.bbands.through_bbands(pos = 's', length = 60, std = 2)
+
+stoch_turnup1= k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
+stoch_turndown1 = k200.stoch.rebound1(pos = 's', k = 10, d = 5, smooth_d = 5)
+stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
+stoch_turndown2 = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
+
+rsi_turnup = k200.rsi.rebound(pos = 'l')
+rsi_turndown = k200.rsi.rebound(pos = 's')
+
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
+
+#1. 진입조건
+
+put_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), psar_trenddown)
+put_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trenddown)
+put_entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trenddown)
+put_entry11 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trenddown)
+put_entry12 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trenddown)
+put_entry13 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trenddown)
+put_entry3 = get_date_intersect(df_weekly, psar_turndown)
+put_entry4 = get_date_intersect(df_weekly, supertrend_turndown)
+put_entry5 = get_date_intersect(df_weekly, bbands_turndown1)
+put_entry6 = get_date_intersect(df_weekly, bbands_turndown2)
+put_entry7 = get_date_intersect(df_weekly, stoch_turndown1)
+put_entry8 = get_date_intersect(df_weekly, stoch_turndown2)
+put_entry9 = get_date_intersect(df_weekly, rsi_turndown)
+
+#2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
+
+buy_putbs = {"P" : [('delta', -0.5, -1), ('delta', -0.26, 2)]}
+
+put_exit1 = []
+put_exit2 = get_date_intersect(df_weekly, psar_turnup)
+put_exit3 = get_date_union(df_weekly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))
+put_exit4 = get_date_union(df_weekly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
+
+put_stop = 1
+profit_take = 0.5
+stop_loss = -999
+dte_range = [42, 71]
+
+res = backtest.get_vertical_trade_result(df_weekly,
+                                              entry_dates = put_entry2,
+                                              trade_spec = buy_putbs,
+                                              dte_range = dte_range,
+                                              exit_dates = put_exit4,
+                                              stop_dte = put_stop,
+                                              is_complex_strat = True,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
 #%% put_test
 
 psar_turnup = k200.psar.rebound(pos = 'l')
@@ -286,20 +357,20 @@ put_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar
 put_entry4 = get_date_intersect(df_monthly, supertrend_turndown)
 put_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trenddown)
 
-buy_putbs = {"P" : [('delta', -0.2, -1), ('delta', -0.1, 2)]}
+buy_putbs = {"P" : [('delta', -0.5, -1), ('delta', -0.26, 2)]}
 
 put_exit1 = []
-put_exit2 = get_date_intersect(df_monthly, psar_turndown)
-put_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))
-put_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
+put_exit2 = get_date_intersect(df_monthly, psar_turnup)
+put_exit3 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))
+put_exit4 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
 
 put_stop = 1
-profit_take = 999
-stop_loss = -1
-dte_range = [7, 36]
+profit_take = 0.5
+stop_loss = -999
+dte_range = [42, 71]
 
 res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = put_entry4,
+                                              entry_dates = put_entry2,
                                               trade_spec = buy_putbs,
                                               dte_range = dte_range,
                                               exit_dates = put_exit4,
@@ -308,7 +379,74 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
-#%% callside_test
+#%% weekly_call_test
+
+psar_turnup = k200.psar.rebound(pos = 'l')
+psar_turndown = k200.psar.rebound(pos = 's')
+
+psar_trendup = k200.psar.trend(pos = 'l')
+psar_trenddown = k200.psar.trend(pos = 's')
+
+supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier =
+                                               3)
+supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
+supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
+
+bbands_turnup1 = k200.bbands.through_bbands(pos = 'l', length = 20, std = 2)
+bbands_turndown1 = k200.bbands.through_bbands(pos = 's', length = 20, std = 2)
+bbands_turnup2 = k200.bbands.through_bbands(pos = 'l', length = 60, std = 2)
+bbands_turndown2 = k200.bbands.through_bbands(pos = 's', length = 60, std = 2)
+
+stoch_turnup1= k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
+stoch_turndown1 = k200.stoch.rebound1(pos = 's', k = 10, d = 5, smooth_d = 5)
+stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
+stoch_turndown2 = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
+
+rsi_turnup = k200.rsi.rebound(pos = 'l')
+rsi_turndown = k200.rsi.rebound(pos = 's')
+
+no_vixinvert = notrade.vix_curve_invert()
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
+
+call_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), psar_trendup)
+call_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trendup)
+call_entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trendup)
+call_entry11 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trendup)
+call_entry12 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)
+call_entry13 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trendup)
+call_entry3 = get_date_intersect(df_weekly, psar_turnup)
+call_entry4 = get_date_intersect(df_weekly, supertrend_turnup)
+call_entry5 = get_date_intersect(df_weekly, bbands_turnup1)
+call_entry6 = get_date_intersect(df_weekly, bbands_turnup2)
+call_entry7 = get_date_intersect(df_weekly, stoch_turnup1)
+call_entry8 = get_date_intersect(df_weekly, stoch_turnup2)
+call_entry9 = get_date_intersect(df_weekly, rsi_turnup)
+
+buy_callbs = {"C" : [('delta', 0.2, -1), ('delta', -0.1, 2)]}
+
+call_exit1 = []
+call_exit2 = get_date_intersect(df_weekly, psar_turndown)
+call_exit3 = get_date_union(df_weekly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))
+call_exit4 = get_date_union(df_weekly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
+
+call_stop = 1
+profit_take = 4
+stop_loss = -0.5
+dte_range = [2, 9]
+
+res = backtest.get_vertical_trade_result(df_weekly,
+                                              entry_dates = call_entry13,
+                                              trade_spec = buy_callbs,
+                                              dte_range = dte_range,
+                                              exit_dates = call_exit1,
+                                              stop_dte = call_stop,
+                                              is_complex_strat = True,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+#%% call_test
 
 psar_turnup = k200.psar.rebound(pos = 'l')
 psar_turndown = k200.psar.rebound(pos = 's')
@@ -336,14 +474,6 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 no_vixinvert = notrade.vix_curve_invert()
 no_lowvol = notrade.vkospi_below_n(0.2)
 no_highvol = notrade.vkospi_above_n(0.8)
-
-# 조정순서
-#1. 진입기준조건  
-#2. 델타(=행사가/무슨종목) 
-#3. 만기선택
-#4. 엑싯기준조건 
-#5. 익손절 기준금액 
-#6. 포지션 규모 (=사이징)
 
 call_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)
 call_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trendup)
@@ -880,8 +1010,7 @@ psar_trendup = k200.psar.trend(pos = 'l')
 psar_trenddown = k200.psar.trend(pos = 's')
 
 supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
-supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier =
-                                               3)
+supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier = 3)
 supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
 supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
 
@@ -1130,13 +1259,13 @@ entry_condition = [
     dict(put_entry11 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trenddown)),
     dict(put_entry12 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trenddown)),
     dict(put_entry13 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trenddown))
-    # dict(put_entry3 = get_date_intersect(df_weekly, psar_turndown)),
-    # dict(put_entry4 = get_date_intersect(df_weekly, supertrend_turndown)),
-    # dict(put_entry5 = get_date_intersect(df_weekly, bbands_turndown1)),
-    # dict(put_entry6 = get_date_intersect(df_weekly, bbands_turndown2)),
-    # dict(put_entry7 = get_date_intersect(df_weekly, stoch_turndown1)),
-    # dict(put_entry8 = get_date_intersect(df_weekly, stoch_turndown2)),
-    # dict(put_entry9 = get_date_intersect(df_weekly, rsi_turndown))
+    dict(put_entry3 = get_date_intersect(df_weekly, psar_turndown)),
+    dict(put_entry4 = get_date_intersect(df_weekly, supertrend_turndown)),
+    dict(put_entry5 = get_date_intersect(df_weekly, bbands_turndown1)),
+    dict(put_entry6 = get_date_intersect(df_weekly, bbands_turndown2)),
+    dict(put_entry7 = get_date_intersect(df_weekly, stoch_turndown1)),
+    dict(put_entry8 = get_date_intersect(df_weekly, stoch_turndown2)),
+    dict(put_entry9 = get_date_intersect(df_weekly, rsi_turndown))
 ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
