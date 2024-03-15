@@ -77,6 +77,7 @@ backtest.py
     # number_of_contracts 도 sizing 구현 : vix지수 수준에 따른 sizing : 한 trade size : 0 ~ 3까지?...
         # 현실적으로 매 signal 마다 포지션 들어가는데 그것가지 sizing 하는건 증거금 관리에 어긋남...
         # 한 주에 해야 할 수량 정하고 signal 마다 나누어서 진입 -> 0 ~ 5(max)
+    # 병렬처리 코드로 바꾸기 : concurrent.futures / multithreading / asyncio
 
 
 preprocessing.py
@@ -92,5 +93,4 @@ preprocessing.py
 option_calc.py
 
 
-ㅁ미완
-# 스큐 / 텀 구하는 식 수정하기
+ㅁ 스큐 / 텀 구하는 식 수정하기
