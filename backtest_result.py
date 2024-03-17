@@ -882,9 +882,6 @@ for i in range(0, len(comb), 100):
     del df_res
     del chunk
 
-
-
-
 #%% 콜매수
    
 from itertools import product
@@ -1574,7 +1571,6 @@ stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
 
 rsi_turnup = k200.rsi.rebound(pos = 'l')
 rsi_turndown = k200.rsi.rebound(pos = 's')
-
 
 #1. 진입조건
 entry_condition = [
