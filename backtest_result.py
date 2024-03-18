@@ -285,32 +285,32 @@ no_lowvol = notrade.vkospi_below_n(0.2)
 no_highvol = notrade.vkospi_above_n(0.8)
 
 #1. 진입조건
-put_entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trenddown)
+put_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 
-buy_putbs = {'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]}
+put_strat = {'P': [('delta', -0.2, -1)]}
 
 dte_range = [2, 9]
 
-put_exit1 = []
+put_exit = []
 
 # put_exit2 = get_date_intersect(df_weekly, psar_turnup)
 # put_exit3 = get_date_union(df_weekly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))
 # put_exit4 = get_date_union(df_weekly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
 
-put_stop = 1
-profit_take = 2
-stop_loss = -0.5
+put_stop = 0
+profit_take = 0.25
+stop_loss = -1
 
 
 res = backtest.get_vertical_trade_result(df_weekly,
-                                              entry_dates = put_entry10,
-                                              trade_spec = buy_putbs,
+                                              entry_dates = put_entry,
+                                              trade_spec = put_strat,
                                               dte_range = dte_range,
-                                              exit_dates = put_exit1,
+                                              exit_dates = put_exit,
                                               stop_dte = put_stop,
-                                              is_complex_strat = True,
+                                              is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
@@ -414,7 +414,10 @@ call_entry7 = get_date_intersect(df_weekly, stoch_turnup1)
 call_entry8 = get_date_intersect(df_weekly, stoch_turnup2)
 call_entry9 = get_date_intersect(df_weekly, rsi_turnup)
 
-buy_callbs = {"C" : [('delta', 0.2, -1), ('delta', -0.1, 2)]}
+
+
+call_entry =  get_date_intersect(df_weekly, psar_turndown)
+call_strat = {'C': [('delta', 0.4, -1)]}
 
 call_exit1 = []
 call_exit2 = get_date_intersect(df_weekly, psar_turndown)
@@ -422,17 +425,17 @@ call_exit3 = get_date_union(df_weekly, psar_turndown, k200.stoch.rebound1(pos ='
 call_exit4 = get_date_union(df_weekly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 call_stop = 1
-profit_take = 4
-stop_loss = -0.5
+profit_take = 0.8
+stop_loss = -1
 dte_range = [2, 9]
 
 res = backtest.get_vertical_trade_result(df_weekly,
-                                              entry_dates = call_entry13,
-                                              trade_spec = buy_callbs,
+                                              entry_dates = call_entry,
+                                              trade_spec = call_strat,
                                               dte_range = dte_range,
                                               exit_dates = call_exit1,
                                               stop_dte = call_stop,
-                                              is_complex_strat = True,
+                                              is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
@@ -805,15 +808,16 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 
 #1. 진입조건
 entry_condition = [
-    dict(call_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trenddown)),
-    dict(call_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trenddown)),
-    dict(call_entry3 = get_date_intersect(df_weekly, psar_turndown)),
-    dict(call_entry4 = get_date_intersect(df_weekly, supertrend_turndown)),
-    dict(call_entry5 = get_date_intersect(df_weekly, bbands_turndown1)),
-    dict(call_entry6 = get_date_intersect(df_weekly, bbands_turndown2)),
-    dict(call_entry7 = get_date_intersect(df_weekly, stoch_turndown1)),
-    dict(call_entry8 = get_date_intersect(df_weekly, stoch_turndown2)),
-    dict(call_entry9 = get_date_intersect(df_weekly, rsi_turndown))
+    dict(call_entry0 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0])))
+    # dict(call_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trenddown)),
+    # dict(call_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trenddown)),
+    # dict(call_entry3 = get_date_intersect(df_weekly, psar_turndown)),
+    # dict(call_entry4 = get_date_intersect(df_weekly, supertrend_turndown)),
+    # dict(call_entry5 = get_date_intersect(df_weekly, bbands_turndown1)),
+    # dict(call_entry6 = get_date_intersect(df_weekly, bbands_turndown2)),
+    # dict(call_entry7 = get_date_intersect(df_weekly, stoch_turndown1)),
+    # dict(call_entry8 = get_date_intersect(df_weekly, stoch_turndown2)),
+    # dict(call_entry9 = get_date_intersect(df_weekly, rsi_turndown))
 ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
@@ -1574,15 +1578,16 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 
 #1. 진입조건
 entry_condition = [
-    dict(put_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)),
-    dict(put_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trendup)),
-    dict(put_entry3 = get_date_intersect(df_weekly, psar_turnup)),
-    dict(put_entry4 = get_date_intersect(df_weekly, supertrend_turnup)),
-    dict(put_entry5 = get_date_intersect(df_weekly, bbands_turnup1)),
-    dict(put_entry6 = get_date_intersect(df_weekly, bbands_turnup2)),
-    dict(put_entry7 = get_date_intersect(df_weekly, stoch_turnup1)),
-    dict(put_entry8 = get_date_intersect(df_weekly, stoch_turnup2)),
-    dict(put_entry9 = get_date_intersect(df_weekly, rsi_turnup))
+    dict(put_entry0 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0])))
+    # dict(put_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)),
+    # dict(put_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trendup)),
+    # dict(put_entry3 = get_date_intersect(df_weekly, psar_turnup)),
+    # dict(put_entry4 = get_date_intersect(df_weekly, supertrend_turnup)),
+    # dict(put_entry5 = get_date_intersect(df_weekly, bbands_turnup1)),
+    # dict(put_entry6 = get_date_intersect(df_weekly, bbands_turnup2)),
+    # dict(put_entry7 = get_date_intersect(df_weekly, stoch_turnup1)),
+    # dict(put_entry8 = get_date_intersect(df_weekly, stoch_turnup2)),
+    # dict(put_entry9 = get_date_intersect(df_weekly, rsi_turnup))
 ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
