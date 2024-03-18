@@ -81,106 +81,8 @@ def scale(df_result, df_sizing):
 from get_entry_date import get_date_intersect, get_date_union, weekday_entry, notrade, stoch_signal, rsi_signal, bband_signal, psar_signal, supertrend_signal
 
 
-# long call
-buy_call =[
-    {'C': [('delta', 0.4, 1)]},
-    {'C': [('delta', 0.3, 1)]},
-    {'C': [('delta', 0.2, 1)]},
-    {'C': [('delta', 0.1, 1)]}
-]
-
-# long call spreads
-buy_call_debit = [
-    {'C' : [('number', 0, 1), ('number', 2.5, -1)]},
-    {'C' : [('number', 2.5, 1), ('number', 5, -1)]},
-    {'C' : [('number', 5, 1), ('number', 7.5, -1)]},
-    {'C' : [('number', 7.5, 1), ('number', 10, -1)]}
-]
-
-buy_call_backspread = [
-    {'C' : [('delta', 0.5, -1), ('delta', 0.25, 2)]},
-    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 2)]},
-    {'C' : [('delta', 0.4, -1), ('delta', 0.2, 3)]},
-    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]},
-    {'C' : [('delta', 0.3, -1), ('delta', 0.15, 3)]}
-]
 sell_call_front = {'C' : [('delta', 0.4, -1)]}
 buy_call_back = {'C' : [('delta', 0.2, 2)]} 
-
-
-sell_call =[
-    {'C': [('delta', 0.4, -1)]},
-    {'C': [('delta', 0.3, -1)]},
-    {'C': [('delta', 0.2, -1)]},
-    {'C': [('delta', 0.1, -1)]}
-]
-
-sell_call_credit = [
-    {'C' : [('number', 0, -1), ('number', 2.5, 1)]},
-    {'C' : [('number', 2.5, -1), ('number', 5, 1)]},
-    {'C' : [('number', 5, -1), ('number', 7.5, 1)]},
-    {'C' : [('number', 7.5, -1), ('number', 10, 1)]}
-]
-
-sell_call_ratio = [
-    {'C' : [('delta', 0.5, 1), ('delta', 0.25, -2)]},
-    {'C' : [('delta', 0.4, 1), ('delta', 0.2, -2)]},
-    {'C' : [('delta', 0.4, 1), ('delta', 0.2, -3)]},
-    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -2)]},
-    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -3)]}
-]
-
-sell_call_111 = [
-    {'C' : [('delta', 0.5, 1), ('delta', 0.46, -1), ('delta', 0.15, -1)]},
-    {'C' : [('delta', 0.4, 1), ('delta', 0.36, -1), ('delta', 0.125, -1)]},
-    {'C' : [('delta', 0.3, 1), ('delta', 0.26, -1), ('delta', 0.10, -1)]},
-    {'C' : [('delta', 0.25, 1), ('delta', 0.20, -1), ('delta', 0.08, -1)]},
-    {'C' : [('delta', 0.2, 1), ('delta', 0.15, -1), ('delta', 0.07, -1)]}
-]
-
-#풋매수계열 진입 ---------------
-
-buy_put = [{'P': [('delta', -0.4, 1)]},
-            {'P': [('delta', -0.3, 1)]},
-            {'P': [('delta', -0.2, 1)]},
-            {'P': [('delta', -0.1, 1)]}
-]
-
-buy_put_debit = [
-    {'P': [('number', 0, 1), ('number', -2.5, -1)]},
-    {'P': [('number', -2.5, 1), ('number', -5, -1)]},
-    {'P': [('number', -5, 1), ('number', -7.5, -1)]},
-    {'P': [('number', -7.5, 1), ('number', -10, -1)]}
-]
-
-buy_put_backspread =[
-    {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]},
-    {'P': [('delta', -0.4, -1), ('delta', -0.21, 2)]},
-    {'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]},
-    {'P': [('number', 0, -1), ('number', -5, 2)]},
-    {'P': [('number', 0, -1), ('number', -7.5, 2)]}
-]
-
-sell_put = [{'P': [('delta', -0.4, -1)]},
-            {'P': [('delta', -0.3, -1)]},
-            {'P': [('delta', -0.2, -1)]},
-            {'P': [('delta', -0.1, -1)]}
-]
-
-sell_put_credit = [
-    {'P': [('number', 0, -1), ('number', -2.5, 1)]},
-    {'P': [('number', -2.5, -1), ('number', -5, 1)]},
-    {'P': [('number', -5, -1), ('number', -7.5, 1)]},
-    {'P': [('number', -7.5, -1), ('number', -10, 1)]}
-]
-
-sell_put_111 = [
-    {'P' : [('delta', -0.5, 1), ('delta', -0.46, -1), ('delta', -0.20, -1)]},
-    {'P' : [('delta', -0.4, 1), ('delta', -0.36, -1), ('delta', -0.17, -1)]},
-    {'P' : [('delta', -0.3, 1), ('delta', -0.26, -1), ('delta', -0.14, -1)]},
-    {'P' : [('delta', -0.25, 1), ('delta',- 0.20, -1), ('delta',-0.10, -1)]},
-    {'P' : [('delta', -0.2, 1), ('delta', -0.15, -1), ('delta', -0.07, -1)]}
-]
 
 buy_put_front = {'P': [('delta', -0.4, 1)]}
 sell_put_back = {'P': [('delta', -0.2, -2)]} 
@@ -586,7 +488,7 @@ for i in range(0, len(comb), 100):
     del chunk
 
 
-#%% 스트랭글 위클리
+#%% 스트랭글 매도 위클리
    
 from itertools import product
 import time
@@ -598,7 +500,7 @@ no_highvol = notrade.vkospi_above_n(0.8)
 #1. 진입조건
 entry_condition = [
     dict(strangle_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))),
-    dict(strangle_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4, 0]))),
+    dict(strangle_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0, 4]))),
     dict(strangle_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_vixinvert)),
     dict(strangle_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_lowvol)),
     dict(strangle_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_highvol))
@@ -645,6 +547,96 @@ for i in range(0, len(comb), 100):
                                 dte_range = dte,
                                 exit_dates = exit_value,
                                 stop_dte = 1,
+                                is_complex_strat = False,
+                                profit_take = profit_target,
+                                stop_loss = stop_loss)
+        result = dict(
+        n = sum(res)['n'],
+        win = sum(res)['win'],
+        totalret = sum(res)['total_ret'],
+        maxret = cum(res)['cumret'].max(),
+        mdd = cum(res)['drawdown'].min()
+        )
+
+        df_res[f"{entry_name}_{trade}_{dte}_{exit_name}_{profit_target}_{stop_loss}"] = result
+        end = time.time()
+        print(start - end)
+        
+    csv_res = pd.DataFrame(df_res).T
+    csv_res.to_csv(f"./res_dump_buy_call/{i}_{i} + 100.csv")
+    del df_res
+    del chunk
+
+#%% 스트랭글 매수 짤짤이 위클리
+   
+from itertools import product
+import time
+
+lowvol_only = notrade.vkospi_above_n(0.5)
+no_highvol = notrade.vkospi_above_n(0.8)
+
+#1. 진입조건
+entry_condition = [
+    dict(strangle_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]))),
+    dict(strangle_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only)),
+    dict(strangle_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_highvol)),
+    dict(strangle_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))),
+    dict(strangle_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), lowvol_only)),
+    dict(strangle_entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_highvol)),
+    dict(strangle_entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]))),
+    dict(strangle_entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), lowvol_only)),
+    dict(strangle_entry9 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), no_highvol)),
+    dict(strangle_entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]))),
+    dict(strangle_entry11 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), lowvol_only)),
+    dict(strangle_entry12 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), no_highvol)),
+    dict(strangle_entry13 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]))),
+    dict(strangle_entry14 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), lowvol_only)),
+    dict(strangle_entry15 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), no_highvol))
+]
+
+#2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
+buy_weekly_strangle =[
+    {'C': [('number', 10, 1)], "P" : [('number', -10, 1)]},
+    {'C': [('number', 7.5, 1)], "P" : [('number', -7.5, 1)]},
+    {'C': [('number', 5, 1)], "P" : [('number', -5, 1)]},
+    {'C': [('number', 2.5, 1)], "P" : [('number', -2.5, 1)]},
+    {'C': [('number', 0, 1)], "P" : [('number', 0, 1)]}
+    ]
+
+#3. 진입시점의 잔존만기
+dte_range = [
+            [2, 9],
+             ]
+
+#4. 청산 조건
+exit_condition = [
+    dict(exit1 = [])
+    ]
+
+#5. 익절 
+profit_target = [0.1, 0.25, 0.5, 1]
+#6. 손절
+stop_loss = [-0.1, -0.25, -0.5]
+
+comb = list(product(entry_condition, buy_weekly_strangle, dte_range, exit_condition, profit_target, stop_loss))
+
+for i in range(0, len(comb), 100):
+
+    df_res = dict()
+    chunk = comb[i:i+100]
+
+    for entry, trade, dte, exit, profit_target, stop_loss in chunk:
+        start = time.time()
+        entry_name = list(entry.keys())[0]
+        entry_value = list(entry.values())[0]
+        exit_name = list(exit.keys())[0]
+        exit_value = list(exit.values())[0]
+        res = backtest.get_vertical_trade_result(df_weekly,
+                                entry_dates = entry_value,
+                                trade_spec = trade,
+                                dte_range = dte,
+                                exit_dates = exit_value,
+                                stop_dte = 0,
                                 is_complex_strat = False,
                                 profit_take = profit_target,
                                 stop_loss = stop_loss)
