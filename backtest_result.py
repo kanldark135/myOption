@@ -347,26 +347,27 @@ no_highvol = notrade.vkospi_above_n(0.8)
 # call_entry8 = get_date_intersect(df_monthly, stoch_turnup2)
 # call_entry9 = get_date_intersect(df_monthly, rsi_turnup)
 
-call_entry7 = get_date_intersect(df_monthly, stoch_turndown1)
+call_entry = get_date_intersect(df_monthly, supertrend_turnup)
 
-call_strat = {'C': [('delta', 0.2, -1)]}
+call_strat = {'C': [('delta', 0.4, 1)]}
 
-dte_range = [42, 71]
+dte_range = [7, 36]
 
-call_exit1 = []
+call_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
+
 # call_exit2 = get_date_intersect(df_monthly, psar_turndown)
 # call_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))
 # call_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 call_stop = 1
-profit_take = 0.25
+profit_take = 999
 stop_loss = -0.25
 
 res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = call_entry7,
+                                              entry_dates = call_entry,
                                               trade_spec = call_strat,
                                               dte_range = dte_range,
-                                              exit_dates = call_exit1,
+                                              exit_dates = call_exit,
                                               stop_dte = call_stop,
                                               is_complex_strat = False,
                                               profit_take = profit_take,
