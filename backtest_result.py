@@ -95,14 +95,14 @@ no_highvol = notrade.vkospi_above_n(0.8)
 #4. 조기엑싯 (exit : noexit / ...)
 # 변동성 사이징은 눈으로 보면서 판단
 
-strangle = {'C': [('number', 7.5, 1)], 'P': [('number', -7.5, 1)]}
+strangle = {'C': [('number', 2.5, 1)], 'P': [('number', -2.5, 1)]}
 
 strangle_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only)
 
 
 exit1 = []
 stop = 0
-profit_take = 0.1
+profit_take = 1
 stop_loss = -0.1
 dte_range = [2, 9]
 
