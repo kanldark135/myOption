@@ -6,8 +6,8 @@ import scipy.optimize as sciop
 # 전략 추가/제거시 usecol 수정 필요
 
 # df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BF:DK", skiprows = [0])
-df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BF:DE", skiprows = [0])
-n_size = 20 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
+df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BG:DJ", skiprows = [0])
+n_size = 24 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -36,7 +36,6 @@ for i in range(n_of_strats):
     df_pnl = pd.concat([df_pnl, df_dummy], axis = 1)
 
 df_drawdown = df_pnl.apply(lambda x : x - x.cummax(), axis = 0)
-
 
 def obj_function(weight, df_pnl):
     if len(weight) != df_pnl.shape[1]:
@@ -76,7 +75,7 @@ res_int = pd.DataFrame(data = np.round(opt_result.x), index = df_pnl.columns, co
 
 #1. 전략별로 loop 하는 preprocessing
 
-df_weekly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "DM:FR", skiprows = [0])
+df_weekly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "DL:FQ", skiprows = [0])
 n_size = 16 # 운용규모 커질수록 적절하게 조정
 
 n_of_strats = int(df_weekly.shape[1] / 2)
