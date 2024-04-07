@@ -229,33 +229,25 @@ stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
 rsi_turnup = k200.rsi.rebound(pos = 'l')
 rsi_turndown = k200.rsi.rebound(pos = 's')
 
-no_vixinvert = notrade.vix_curve_invert()
 lowvol_only = notrade.vkospi_below_n(0.2)
-no_highvol = notrade.vkospi_above_n(0.8)
+no_lowvol = notrade.vkospi_above_n(0.2)
 
-put_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trenddown)
-put_entry4 = get_date_intersect(df_monthly, supertrend_turndown)
-put_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trenddown)
-
-buy_putbs = {"P" : [('delta', -0.5, -1), ('delta', -0.26, 2)]}
-
-put_exit1 = []
-put_exit2 = get_date_intersect(df_monthly, psar_turnup)
-put_exit3 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))
-put_exit4 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
+put_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol)
+put_strat = {"P" : [('delta', -0.2, -1)]}
+put_exit = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
 
 put_stop = 1
 profit_take = 0.5
-stop_loss = -999
-dte_range = [42, 71]
+stop_loss = -0.25
+dte_range = [42, 70]
 
 res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = put_entry2,
-                                              trade_spec = buy_putbs,
+                                              entry_dates = put_entry,
+                                              trade_spec = put_exit,
                                               dte_range = dte_range,
-                                              exit_dates = put_exit4,
+                                              exit_dates = put_exit,
                                               stop_dte = put_stop,
-                                              is_complex_strat = True,
+                                              is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 

@@ -7,7 +7,7 @@ import scipy.optimize as sciop
 
 # df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BF:DK", skiprows = [0])
 df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BG:DJ", skiprows = [0])
-n_size = 24 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
+n_size = 50 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -70,6 +70,9 @@ dd_int = pnl_int - pnl_int.cummax()
 ratio_int = pnl_int.max() / dd_int.min()
 
 res_int = pd.DataFrame(data = np.round(opt_result.x), index = df_pnl.columns, columns = ['weight'])
+
+res_int.to_csv("./res.csv")
+pnl_int.to_csv("./ret.csv")
 
 #%% 주물
 
@@ -136,3 +139,6 @@ dd_int = pnl_int - pnl_int.cummax()
 ratio_int = pnl_int.max() / dd_int.min()
 
 res_int = pd.DataFrame(data = np.round(opt_result.x), index = df_pnl.columns, columns = ['weight'])
+
+res_int.to_csv("./res.csv")
+pnl_int.to_csv("./ret.csv")
