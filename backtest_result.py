@@ -85,8 +85,8 @@ from get_entry_date import get_date_intersect, get_date_union, weekday_entry, no
 
 
 no_vixinvert = notrade.vix_curve_invert()
-lowvol_only = notrade.vkospi_above_n(0.5)
-no_highvol = notrade.vkospi_above_n(0.8)
+no_lowvol = notrade.vkospi_above_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.5) 
 
 # 조정순서
 #1. 진입시점 (put_entry) : 전략별로 다르게 (entry)
@@ -97,8 +97,7 @@ no_highvol = notrade.vkospi_above_n(0.8)
 
 strangle = {'C': [('number', 2.5, 1)], 'P': [('number', -2.5, 1)]}
 
-strangle_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only)
-
+strangle_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_highvol)
 
 exit1 = []
 stop = 0
@@ -125,18 +124,18 @@ res = backtest.get_vertical_trade_result(df_weekly,
 #4. 조기엑싯 (exit : noexit / ...)
 # 변동성 사이징은 눈으로 보면서 판단
 
-lowvol_1 = notrade.vkospi_above_n(0.2)
+no_lowvol = notrade.vkospi_below_n(0.2)
 
-strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), lowvol_1)
+strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol)
 
-strangle = {'C': [('delta', 0.06, 1)], 'P': [('delta', -0.07, 1)]}
+strangle = {'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}
 
 exit1 = []
 
-stop = 0
-profit_take = 1
+stop = 1
+profit_take = 0.8
 stop_loss = -0.25
-dte_range = [7, 35]
+dte_range = [42, 71]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = strangle_entry,
@@ -180,19 +179,19 @@ lowvol_only = notrade.vkospi_below_n(0.2)
 no_highvol = notrade.vkospi_above_n(0.8)
 
 #1. 진입조건
-put_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), psar_trenddown)
+put_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trenddown)
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 
-put_strat = {'P': [('delta', -0.50, 1)]}
+put_strat = {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]}
 
 dte_range = [2, 9]
 
 put_exit = []
 
 put_stop = 0
-profit_take = 999
-stop_loss = -1
+profit_take = 4
+stop_loss = -999
 
 res = backtest.get_vertical_trade_result(df_weekly,
                                               entry_dates = put_entry,
@@ -200,7 +199,7 @@ res = backtest.get_vertical_trade_result(df_weekly,
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
-                                              is_complex_strat = False,
+                                              is_complex_strat = True,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
@@ -229,21 +228,21 @@ stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
 rsi_turnup = k200.rsi.rebound(pos = 'l')
 rsi_turndown = k200.rsi.rebound(pos = 's')
 
-lowvol_only = notrade.vkospi_below_n(0.2)
-no_lowvol = notrade.vkospi_above_n(0.2)
+no_lowvol = notrade.vkospi_below_n(0.2)
+lowvol_only = notrade.vkospi_above_n(0.2)
 
-put_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol)
+put_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)
 put_strat = {"P" : [('delta', -0.2, -1)]}
-put_exit = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5, smooth_d = 5))
+put_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 put_stop = 1
 profit_take = 0.5
 stop_loss = -0.25
-dte_range = [42, 70]
+dte_range = [42, 71]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry,
-                                              trade_spec = put_exit,
+                                              trade_spec = put_strat,
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
