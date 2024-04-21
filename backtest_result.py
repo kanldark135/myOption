@@ -97,7 +97,7 @@ no_highvol = notrade.vkospi_above_n(0.5)
 
 strangle = {'C': [('number', 2.5, 1)], 'P': [('number', -2.5, 1)]}
 
-strangle_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_highvol)
+strangle_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_lowvol)
 
 exit1 = []
 stop = 0
@@ -125,16 +125,17 @@ res = backtest.get_vertical_trade_result(df_weekly,
 # 변동성 사이징은 눈으로 보면서 판단
 
 no_lowvol = notrade.vkospi_below_n(0.2)
+no_vixinvert = notrade.vix_curve_invert()
 
-strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol)
+strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0, 4]), no_lowvol, no_vixinvert)
 
 strangle = {'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}
 
 exit1 = []
 
 stop = 1
-profit_take = 0.8
 stop_loss = -0.25
+profit_take = 0.8
 dte_range = [42, 71]
 
 res = backtest.get_vertical_trade_result(df_monthly,
