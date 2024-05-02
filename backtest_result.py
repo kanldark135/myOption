@@ -157,8 +157,7 @@ psar_trendup = k200.psar.trend(pos = 'l')
 psar_trenddown = k200.psar.trend(pos = 's')
 
 supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
-supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier =
-                                               3)
+supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier = 3)
 supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
 supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
 
