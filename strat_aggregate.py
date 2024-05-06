@@ -15,8 +15,9 @@ def custom_res(df_pnl, custom_weight):
 # 전략 추가/제거시 usecol 수정 필요
 
 # df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BF:DK", skiprows = [0])
-df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BA:DD", skiprows = [0])
-n_size = 100 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
+df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BB:DE", skiprows = [0])
+n_lower = 0 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
+n_higher = 60
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -59,12 +60,13 @@ def obj_function(weight, df_pnl):
 
     return res
 
-weight = np.zeros(n_of_strats)
+weight = np.ones(n_of_strats)
 
-bound = [(0, n_size) for i in range(n_of_strats)] # no selling
-const_1 = {'type' : 'eq', 'fun' : lambda w : np.sum(w) - n_size} # sum of all weight is 1
+bound = [(0, n_higher) for i in range(n_of_strats)] # no selling
+const_1 = {'type' : 'ineq', 'fun' : lambda w : np.sum(w) - n_lower} # sum of all weight is 1
+const_2 = {'type' : 'ineq', 'fun' : lambda w : n_higher - np.sum(w)} # sum of all weight is 1
 
-opt_result = sciop.minimize(obj_function, x0 = weight, args = (df_pnl), bounds = bound, constraints = [const_1])
+opt_result = sciop.minimize(obj_function, x0 = weight, args = (df_pnl), bounds = bound, constraints = [const_1, const_2])
 
 pnl = df_pnl.multiply(opt_result.x).sum(axis = 1)
 dd = pnl - pnl.cummax()
@@ -87,9 +89,10 @@ pnl_int.to_csv("./ret.csv")
 
 #1. 전략별로 loop 하는 preprocessing
 
-df_weekly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "DF:FK", skiprows = [0])
+df_weekly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "DG:FL", skiprows = [0])
 
-n_size = 100 # 운용규모 커질수록 적절하게 조정
+n_lower = 0
+n_higher = 40 # 운용규모 커질수록 적절하게 조정
 
 n_of_strats = int(df_weekly.shape[1] / 2)
 df_pnl = pd.DataFrame()
@@ -129,17 +132,11 @@ def obj_function(weight, df_pnl):
 
     return res
 
-weight = np.zeros(n_of_strats)
+weight = np.ones(n_of_strats)
 
-def c1(w):
-    return np.sum(w) - 20
-
-def c2(w, n_size):
-    return n_size - np.sum(w)
-
-bound = [(0, n_size) for i in range(n_of_strats)] # no selling
-const_1 = {'type' : 'ineq', 'fun' : c1} # sum of all weight is 15
-const_2 = {'type' : 'ineq', 'fun' : c2, 'args' : (n_size, )} # sum of all weight is 15
+bound = [(0, n_higher) for i in range(n_of_strats)] # no selling
+const_1 = {'type' : 'ineq', 'fun' : lambda w : np.sum(w) - n_lower} # sum of all weight is 15
+const_2 = {'type' : 'ineq', 'fun' : lambda w : n_higher - np.sum(w)} # sum of all weight is 15
 
 opt_result = sciop.minimize(obj_function, x0 = weight, args = (df_pnl), bounds = bound, constraints = [const_1, const_2])
 
@@ -158,7 +155,7 @@ try:
     pnl_int = df_pnl.multiply(np.round(opt_result.x)).sum(axis = 1)
     dd_int = pnl_int - pnl_int.cummax()
     ratio_int = pnl_int.max() / dd_int.min()
-except:
+except ZeroDivisionError:
     ratio_int = pnl_int.max() / 0.0001
 
 res_int = pd.DataFrame(data = np.round(opt_result.x), index = df_pnl.columns, columns = ['weight'])
