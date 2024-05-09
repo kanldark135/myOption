@@ -124,19 +124,19 @@ res = backtest.get_vertical_trade_result(df_weekly,
 #4. 조기엑싯 (exit : noexit / ...)
 # 변동성 사이징은 눈으로 보면서 판단
 
-no_lowvol = notrade.vkospi_below_n(0.2)
+lowvol = notrade.vkospi_above_n(0.2)
 no_vixinvert = notrade.vix_curve_invert()
 
-strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0, 4]), no_lowvol, no_vixinvert)
+strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), lowvol)
 
-strangle = {'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}
+strangle = {'C': [('delta', 0.5, 1)], 'P': [('delta', -0.5, 1)]}
 
 exit1 = []
 
-stop = 1
-stop_loss = -0.25
-profit_take = 0.8
-dte_range = [42, 71]
+stop = 0
+profit_take = 0.25
+stop_loss = -0.1
+dte_range = [7, 36]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = strangle_entry,
@@ -147,6 +147,8 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
+
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
 
 #%% weekly_put_test
 
@@ -231,14 +233,16 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 no_lowvol = notrade.vkospi_below_n(0.2)
 lowvol_only = notrade.vkospi_above_n(0.2)
 
-put_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)
-put_strat = {"P" : [('delta', -0.2, -1)]}
-put_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
+put_entry = get_date_intersect(df_monthly, supertrend_turnup)
+put_strat = {'P': [('delta', -0.2, -1)]}
+put_exit = []
+# put_exit = get_date_intersect(df_monthly, psar_turndown)
+# put_exit = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5 , smooth_d = 5))
 
 put_stop = 1
-profit_take = 0.5
-stop_loss = -0.25
-dte_range = [42, 71]
+profit_take = 0.8
+stop_loss = -2
+dte_range = [7, 36]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry,
@@ -249,6 +253,8 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
+
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
 
 #%% weekly_call_test
 
@@ -336,21 +342,20 @@ no_highvol = notrade.vkospi_above_n(0.8)
 # call_entry8 = get_date_intersect(df_monthly, stoch_turnup2)
 # call_entry9 = get_date_intersect(df_monthly, rsi_turnup)
 
-call_entry = get_date_intersect(df_monthly, supertrend_turnup)
+call_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trendup)
 
-call_strat = {'C': [('delta', 0.4, 1)]}
+call_strat = {'C': [('delta', 0.3, -1), ('delta', 0.15, 2)]}
 
 dte_range = [7, 36]
 
-call_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
-
-# call_exit2 = get_date_intersect(df_monthly, psar_turndown)
-# call_exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))
-# call_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
+call_exit = []
+# call_exit = get_date_intersect(df_monthly, psar_turndown)
+# call_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))
+# call_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 call_stop = 1
-profit_take = 999
-stop_loss = -0.25
+profit_take = 6
+stop_loss = -3
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = call_entry,
@@ -358,9 +363,12 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               dte_range = dte_range,
                                               exit_dates = call_exit,
                                               stop_dte = call_stop,
-                                              is_complex_strat = False,
+                                              is_complex_strat = True,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
+
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
+
 #%% backtest
 
 #1. 진입조건

@@ -1,30 +1,32 @@
 ,weight
--> 월+금요일+no_vixinvert / 0.5 / -0.5,2.0
-"call_entry3_{'C': [('delta', 0.4, -1), ('delta', 0.2, 2)]}_[2, 9]_call_exit1_1_-0.5",3.0
-"call_entry6_{'C': [('delta', 0.5, -1), ('delta', 0.25, 2)]}_[2, 9]_call_exit1_2_-2",0.0
-"call_entry4_{'C': [('delta', 0.2, -1), ('delta', 0.1, 2)]}_[2, 9]_call_exit1_4_-0.5",2.0
-"call_entry7_{'C': [('delta', 0.3, -1), ('delta', 0.15, 2)]}_[2, 9]_call_exit1_4_-1",3.0
-"call_entry13_{'C': [('delta', 0.2, -1), ('delta', 0.1, 2)]}_[2, 9]_call_exit1_4_-0.5",6.0
-"put_entry2_{'P': [('delta', -0.4, -1), ('delta', -0.21, 2)]}_[2, 9]_put_exit1_1_-2",1.0
-"put_entry2_{'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]}_[2, 9]_put_exit1_4_-999",0.0
-"put_entry3_{'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]}_[2, 9]_put_exit1_1_-1",0.0
-"put_entry10_{'P': [('delta', -0.3, -1), ('delta', -0.16, 2)]}_[2, 9]_put_exit1_2_-0.5",0.0
-"call_entry3_{'C': [('delta', 0.4, -1)]}_[2, 9]_put_exit1_0.8_-1",1.0
-"put_entry0_{'P': [('delta', -0.2, -1)]}_[2, 9]_put_exit2_0.25_-0.5",1.0
-"put_entry2_{'P': [('delta', -0.2, -1)]}_[2, 9]_put_exit1_0.8_-1",2.0
-"put_entry1_{'P': [('delta', -0.2, -1)]}_[2, 9]_put_exit1_0.25_-1",0.0
-"strangle_entry2_{'C': [('number', 2.5, 1)], 'P': [('number', -2.5, 1)]}_[2, 9]_exit1_1_-0.1",0.0
-"strangle_entry2_{'C': [('number', 7.5, 1)], 'P': [('number', -7.5, 1)]}_[2, 9]_exit1_0.1_-0.1",1.0
-"목요일+vkospi20%이하만_{'C': [('number', 7.5, 1)], 'P': [('number', -7.5, 1)]}_[2, 9]_exit1_1_-0.1",3.0
-"call_entry13_{'C': [('delta', 0.1, 1)]}_[2, 9]_call_exit1_0.5_-0.2",3.0
-"call_entry12_{'C': [('delta', 0.5, 1)]}_[2, 9]_call_exit1_999_-0.2",0.0
-"call_entry12_{'C': [('delta', 0.5, 1)]}_[2, 9]_call_exit1_2_-0.2",0.0
-"call_entry1_{'C': [('delta', 0.25, 1)]}_[2, 9]_call_exit1_1_-0.2",0.0
-"call_entry6_{'C': [('delta', 0.25, 1)]}_[2, 9]_call_exit1_999_-0.2",1.0
-"call_entry9_{'C': [('delta', 0.25, 1)]}_[2, 9]_call_exit1_2_-0.2",2.0
-"put_entry1_{'P': [('delta', -0.1, 1)]}_[2, 9]_put_exit1_2_-0.2",5.0
-"put_entry1_{'P': [('delta', -0.1, 1)]}_[2, 9]_put_exit1_999_-0.2",2.0
-"put_entry2_{'P': [('delta', -0.1, 1)]}_[2, 9]_put_exit1_999_-0.2",0.0
-"put_entry9_{'P': [('delta', -0.5, 1)]}_[2, 9]_put_exit1_0.5_-1",0.0
-"put_entry2_{'P': [('delta', -0.1, 1)]}_[2, 9]_put_exit1_2_-0.2",0.0
-"put_entry7_{'P': [('delta', -0.5, 1)]}_[2, 9]_put_exit1_999_-1",1.0
+"put_entry4_{'P': [('delta', -0.2, -1)]}_[7, 35]_put_exit4_0.8_-0.25",2.0
+"put_entry4_{'P': [('delta', -0.2, -1)]}_[7, 35]_put_exit1_0.25_-0.25",8.0
+"put_entry4_{'P': [('delta', -0.2, -1)]}_[7, 35]_put_exit1_0.8_-2",2.0
+"put_entry9_{'P': [('delta', -0.4, -1)]}_[7, 35]_put_exit1_0.8_-0.25",3.0
+"put_entry7_{'P': [('delta', -0.4, -1)]}_[7, 35]_put_exit1_0.25_-2",0.0
+"put_entry1_{'P': [('delta', -0.2, -1)]}_[7, 35]_put_exit4_0.8_-0.25",0.0
+"put_entry2_{'P': [('delta', -0.2, -1)]}_[7, 35]_put_exit2_0.5_-0.5",2.0
+"call_entry3_{'C': [('delta', 0.4, -1)]}_[7, 35]_call_exit1_0.8_-2",1.0
+"call_entry7_{'C': [('delta', 0.4, -1)]}_[7, 35]_call_exit1_0.25_-1",1.0
+"call_entry4_{'C': [('delta', 0.4, 1)]}_[7, 35]_call_exit4_4_-0.5",0.0
+"call_entry1_{'C': [('delta', 0.2, 1)]}_[7, 35]_call_exit4_0.5_-0.25",1.0
+"call_entry6_{'C': [('delta', 0.2, 1)]}_[7, 35]_call_exit1_0.5_-0.25",0.0
+"strangle_entry4_{'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}_[42, 70]_put_exit1_0.8_-0.25",1.0
+"strangle_entry1_{'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}_[42, 70]_put_exit1_0.8_-0.25",0.0
+"strangle_entry2_{'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}_[42, 70]_put_exit1_0.8_-0.25",1.0
+-> 매주 월+금요일+no_lowvol / 0.8 / -0.25,0.0
+"strangle_entry3_{'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}_[42, 70]_put_exit1_0.1_-0.25",0.0
+-> 월요일 + no_vixinvert + no_lowvol + 0.1 / -0.25,1.0
+-> 월요일 + no_vixinvert + no_lowvol + 0.1 / -0.25 + volsizing,2.0
+"strangle_entry4_{'C': [('delta', 0.3, -1)], 'P': [('delta', -0.3, -1)]}_[42, 70]_put_exit1_0.1_-0.5",0.0
+"strangle_entry4_{'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}_[42, 70]_put_exit1_0.5_-1",0.0
+"call_entry2_{'C': [('delta', 0.3, -1), ('delta', 0.15, 2)]}_[7, 36]_call_exit1_999_-2",1.0
+"call_entry1_{'C': [('delta', 0.3, -1), ('delta', 0.15, 2)]}_[7, 36]_call_exit1_999_-999",1.0
+"call_entry2_{'C': [('delta', 0.3, -1), ('delta', 0.15, 2)]}_[7, 36]_call_exit1_6_-3",0.0
+"put_entry4_{'P': [('delta', -0.2, -1), ('delta', -0.1, 2)]}_[7, 36]_put_exit4_999_-1",10.0
+"strangle_entry2_{'C': [('delta', 0.06, 1)], 'P': [('delta', -0.07, 1)]}_[7, 35]_exit1_1_-0.25",9.0
+"strangle_entry2_{'C': [('delta', 0.06, 1)], 'P': [('delta', -0.07, 1)]}_[7, 35]_exit1_2_-0.25",1.0
+"strangle_entry2_{'C': [('delta', 0.06, 1)], 'P': [('delta', -0.07, 1)]}_[7, 35]_exit1_0.5_-0.25",0.0
+"strangle_entry2_{'C': [('delta', 0.06, 1)], 'P': [('delta', -0.07, 1)]}_[7, 35]_exit1_4_-0.25",1.0
+"strangle_entry2_{'C': [('delta', 0.3, 1)], 'P': [('delta', -0.3, 1)]}_[7, 35]_exit1_1_-0.25",0.0
+"strangle_entry2_{'C': [('delta', 0.5, 1)], 'P': [('delta', -0.5, 1)]}_[7, 35]_exit1_0.25_-0.1",2.0
