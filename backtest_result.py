@@ -231,14 +231,15 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 no_lowvol = notrade.vkospi_below_n(0.2)
 lowvol_only = notrade.vkospi_above_n(0.2)
 
-put_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)
+put_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol)
+
 put_strat = {"P" : [('delta', -0.2, -1)]}
 put_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 put_stop = 1
-profit_take = 0.5
+profit_take = 0.8
 stop_loss = -0.25
-dte_range = [42, 71]
+dte_range = [7, 36]
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = put_entry,
@@ -338,7 +339,7 @@ no_highvol = notrade.vkospi_above_n(0.8)
 
 call_entry = get_date_intersect(df_monthly, supertrend_turnup)
 
-call_strat = {'C': [('delta', 0.4, 1)]}
+call_strat = {'C': [('delta', 0.3, -1), ('delta', 0.15, 3)]}
 
 dte_range = [7, 36]
 
@@ -349,8 +350,8 @@ call_exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='
 # call_exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5, smooth_d = 5))
 
 call_stop = 1
-profit_take = 999
-stop_loss = -0.25
+profit_take = 4
+stop_loss = -1
 
 res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = call_entry,
@@ -358,7 +359,7 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               dte_range = dte_range,
                                               exit_dates = call_exit,
                                               stop_dte = call_stop,
-                                              is_complex_strat = False,
+                                              is_complex_strat = True,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 #%% backtest
