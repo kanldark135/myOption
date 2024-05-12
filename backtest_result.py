@@ -364,6 +364,7 @@ res = backtest.get_vertical_trade_result(df_monthly,
                                               exit_dates = call_exit,
                                               stop_dte = call_stop,
                                               is_complex_strat = True,
+                                              is_complex_strat = True,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
