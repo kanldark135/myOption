@@ -108,10 +108,10 @@ class stoch_signal:
     def rebound1(self, pos ='b', k = 5, d = 3, smooth_d = 3):
 
         '''
-        Contrarian : 전날까지 과매도 / 과매수권에 있다가 + 당일 K가 D를 반대로 돌파하는
-        long_only = 'l'
-        short_only = 's'
-        both = 'b'
+        반전신호 : 전날까지 과매도 / 과매수권에 있다가 + 당일 K가 D를 반대로 돌파하는
+        long_only = 상승반전만
+        short_only = 하락반전만
+        both = 둘다
         '''
         stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
         stoch.columns = ['k', 'd']
@@ -141,10 +141,10 @@ class stoch_signal:
     def rebound2(self, pos ='b', k_or_d = 'k', k = 5, d = 3, smooth_d = 3):
 
         '''
-        Contrarian : 전날까지 과매도 / 과매수권에 있다가 + 전일대비 지표 하락
-        long_only = 'l'
-        short_only = 's'
-        both = 'b'
+        반전신호 : 전날까지 과매도 / 과매수권에 있다가 + 당일 K가 D를 반대로 돌파하는
+        long_only = 상승반전만
+        short_only = 하락반전만
+        both = 둘다
         '''
         stoch = self.df.ta.stoch(k = k, d = d, smooth_d = smooth_d)
         stoch.columns = ['k', 'd']
