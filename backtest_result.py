@@ -181,19 +181,20 @@ lowvol_only = notrade.vkospi_below_n(0.2)
 no_highvol = notrade.vkospi_above_n(0.8)
 
 #1. 진입조건
-put_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trenddown)
+put_entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trenddown)
+# put_entry = get_date_intersect(df_weekly, psar_turndown)
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 
-put_strat = {'P': [('delta', -0.5, -1), ('delta', -0.26, 2)]}
+put_strat = {'P': [('delta', -0.5, 1)]}
 
 dte_range = [2, 9]
 
 put_exit = []
 
 put_stop = 0
-profit_take = 4
-stop_loss = -999
+profit_take = 999
+stop_loss = -1
 
 res = backtest.get_vertical_trade_result(df_weekly,
                                               entry_dates = put_entry,
@@ -201,9 +202,11 @@ res = backtest.get_vertical_trade_result(df_weekly,
                                               dte_range = dte_range,
                                               exit_dates = put_exit,
                                               stop_dte = put_stop,
-                                              is_complex_strat = True,
+                                              is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
+
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
 
 #%% put_test
 
@@ -282,16 +285,16 @@ stoch_turndown2 = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
 rsi_turnup = k200.rsi.rebound(pos = 'l')
 rsi_turndown = k200.rsi.rebound(pos = 's')
 
-call_entry =  get_date_intersect(df_weekly, psar_turnup)
-call_strat = {'C': [('delta', 0.25, 1)]}
+call_entry =  get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), psar_trendup)
+call_strat = {'C': [('delta', 0.5, 1)]}
 
 dte_range = [2, 9]
 
 call_exit1 = []
 
 call_stop = 0
-profit_take = 2
-stop_loss = -0.2
+profit_take = 999
+stop_loss = -1
 
 res = backtest.get_vertical_trade_result(df_weekly,
                                               entry_dates = call_entry,
@@ -302,6 +305,9 @@ res = backtest.get_vertical_trade_result(df_weekly,
                                               is_complex_strat = False,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
+
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
+
 
 #%% call_test
 
