@@ -407,28 +407,36 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 
 
 #1. 진입조건
+# entry_condition = [
+#     dict(call_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), psar_trendup)),
+#     dict(call_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trendup)),
+#     dict(call_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trendup)),
+#     dict(call_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trendup)),
+#     dict(call_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)),
+#     dict(call_entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trendup)),
+#     dict(call_entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), psar_trendup)),
+#     dict(call_entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), supertrend_trendup)),
+#     dict(call_entry9 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), psar_trendup)),
+#     dict(call_entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), supertrend_trendup)),
+#     dict(call_entry11 = get_date_intersect(df_weekly, psar_turnup)),
+#     dict(call_entry12 = get_date_intersect(df_weekly, supertrend_turnup)),
+#     dict(call_entry13 = get_date_intersect(df_weekly, bbands_turnup1)),
+#     dict(call_entry14 = get_date_intersect(df_weekly, bbands_turnup2)),
+#     dict(call_entry15 = get_date_intersect(df_weekly, stoch_turnup1)),
+#     dict(call_entry16 = get_date_intersect(df_weekly, stoch_turnup2))
+# ]
+
 entry_condition = [
-    dict(call_entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), psar_trendup)),
-    dict(call_entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trendup)),
-    dict(call_entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trendup)),
-    dict(call_entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trendup)),
-    dict(call_entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)),
-    dict(call_entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trendup)),
-    dict(call_entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), psar_trendup)),
-    dict(call_entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), supertrend_trendup)),
-    dict(call_entry9 = get_date_intersect(df_weekly, psar_turnup)),
-    dict(call_entry10 = get_date_intersect(df_weekly, supertrend_turnup)),
-    dict(call_entry11 = get_date_intersect(df_weekly, bbands_turnup1)),
-    dict(call_entry12 = get_date_intersect(df_weekly, bbands_turnup2)),
-    dict(call_entry13 = get_date_intersect(df_weekly, stoch_turnup1)),
-    dict(call_entry14 = get_date_intersect(df_weekly, stoch_turnup2))
+    dict(put_entry15 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), psar_trenddown)),
+    dict(put_entry16 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), supertrend_trenddown))
 ]
 
+
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
-buy_call= [
-    {'C' : [('delta', 0.5, 1)]},
-    {'C' : [('delta', 0.25, 1)]},
-    {'C' : [('delta', 0.10, 1)]}
+strat= [
+    {'P' : [('delta', -0.5, 1)]},
+    {'P' : [('delta', -0.25, 1)]},
+    {'P' : [('delta', -0.10, 1)]}
 ]
 
 #3. 어떤 만기 종목
@@ -438,7 +446,7 @@ dte_range = [
 
 #4. 청산 조건
 exit_condition = [
-    dict(call_exit1 = [])
+    dict(exit1 = [])
     ]
 
 #5. 익절 
@@ -446,7 +454,7 @@ profit_target = [0.2, 0.5, 1, 2, 999]
 #6. 손절
 stop_loss = [-0.2, -0.5, -1]
 
-comb = list(product(entry_condition, buy_call, dte_range, exit_condition, profit_target, stop_loss))
+comb = list(product(entry_condition, strat, dte_range, exit_condition, profit_target, stop_loss))
 
 for i in range(0, len(comb), 100):
 
@@ -481,11 +489,11 @@ for i in range(0, len(comb), 100):
         print(start - end)
         
     csv_res = pd.DataFrame(df_res).T
-    csv_res.to_csv(f"./res_dump_buy_call/{i}_{i} + 100.csv")
+    csv_res.to_csv(f"./res_dump/{i}_{i} + 100.csv")
     del df_res
     del chunk
 
-
+#%% 
 from itertools import product
 import time
 
@@ -494,11 +502,11 @@ lowvol_2 = notrade.vkospi_above_n(0.5)
 
 #1. 진입조건
 entry_condition = [
-    dict(strangle_entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]))),
-    dict(strangle_entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), lowvol_1)),
-    dict(strangle_entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), lowvol_2))
-]
-
+    dict(strangle_entry4 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [1]))),
+    dict(strangle_entry5 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [2]))),
+    dict(strangle_entry6 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [3]))),
+    dict(strangle_entry7 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [4])))
+    ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 
@@ -511,8 +519,7 @@ buy_strangle =[
 
 #3. 어떤 만기 종목
 dte_range = [
-            [7, 35], 
-            [42, 70]
+            [7, 35]
              ]
 
 #4. 청산 조건
@@ -521,7 +528,7 @@ exit_condition = [
     ]
 
 #5. 익절 
-profit_target = [0.1, 0.25, 0.5, 1, 2, 4, 999]
+profit_target = [0.1, 0.25, 0.5, 1, 2, 4]
 #6. 손절
 stop_loss = [-0.1, -0.25, -0.5, -1]
 
@@ -560,7 +567,7 @@ for i in range(0, len(comb), 100):
         print(start - end)
         
     csv_res = pd.DataFrame(df_res).T
-    csv_res.to_csv(f"./res_dump_buy_call/{i}_{i} + 100.csv")
+    csv_res.to_csv(f"./res_dump/{i}_{i} + 100.csv")
     del df_res
     del chunk
 
