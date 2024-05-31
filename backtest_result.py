@@ -112,7 +112,7 @@ rsi_turndown = k200.rsi.rebound(pos = 's')
 
 
 no_lowvol = notrade.vkospi_below_n(0.2)
-no_highvol = notrade.vkospi_above_n(0.2)
+no_highvol = notrade.vkospi_above_n(0.8)
 
 lowvol_only1 = flip(notrade.vkospi_below_n(0.2))
 lowvol_only2 = flip(notrade.vkospi_below_n(0.5))
@@ -121,6 +121,230 @@ highvol_only = flip(notrade.vkospi_above_n(0.2))
 no_vixinvert = notrade.vix_curve_invert()
 
 # 상승진입조건
+
+# entry_condition = [
+    # dict(entry0 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]))),
+    # dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)),
+    # dict(entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trendup)),
+    # dict(entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), psar_trendup)),
+    # dict(entry4 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), supertrend_trendup)),
+    # dict(entry5 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), psar_trendup)),
+    # dict(entry6 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), supertrend_trendup)),
+    # dict(entry7 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), psar_trendup)),
+    # dict(entry8 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), supertrend_trendup)),
+    # dict(entry9 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), psar_trendup)),
+    # dict(entry10 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), supertrend_trendup)),
+    # dict(entry11 = get_date_intersect(df_monthly, psar_turnup)),
+    # dict(entry12 = get_date_intersect(df_monthly, supertrend_turnup)),
+    # dict(entry13 = get_date_intersect(df_monthly, bbands_turnup1)),
+    # dict(entry14 = get_date_intersect(df_monthly, bbands_turnup2)),
+    # dict(entry15 = get_date_intersect(df_monthly, stoch_turnup1)),
+    # dict(entry16 = get_date_intersect(df_monthly, stoch_turnup2)),
+    # dict(entry17 = get_date_intersect(df_monthly, rsi_turnup))
+# ]
+
+# exit_condition = [
+#     dict(exit1 = []),
+#     dict(exit2 = get_date_intersect(df_monthly, psar_turndown)),
+#     dict(exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))),
+#     dict(exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5)))
+# ]
+
+# ----------------------------------------------------------------------
+
+# 하락진입조건
+
+# entry_condition = [
+#     dict(entry0 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]))),
+#     dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trenddown)),
+#     dict(entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trenddown)),
+#     dict(entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), psar_trenddown)),
+#     dict(entry4 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), supertrend_trenddown)),
+#     dict(entry5 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), psar_trenddown)),
+#     dict(entry6 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), supertrend_trenddown)),
+#     dict(entry7 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), psar_trenddown)),
+#     dict(entry8 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), supertrend_trenddown)),
+#     dict(entry9 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), psar_trenddown)),
+#     dict(entry10 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), supertrend_trenddown)),
+#     dict(entry11 = get_date_intersect(df_monthly, psar_turndown)),
+#     dict(entry12 = get_date_intersect(df_monthly, supertrend_turndown)),
+#     dict(entry13 = get_date_intersect(df_monthly, bbands_turndown1)),
+#     dict(entry14 = get_date_intersect(df_monthly, bbands_turndown2)),
+#     dict(entry15 = get_date_intersect(df_monthly, stoch_turndown1)),
+#     dict(entry16 = get_date_intersect(df_monthly, stoch_turndown2)),
+#     dict(entry17 = get_date_intersect(df_monthly, rsi_turndown)),
+# ]
+
+# exit_condition = [
+#     dict(exit1 = []),
+#     dict(exit2 = get_date_intersect(df_monthly, psar_turnup)),
+#     dict(exit3 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))),
+#     dict(exit4 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5 , smooth_d = 5)))
+# ]
+
+# ----------------------------------------------------------------------
+
+# # 양매도
+
+# no_lowvol = notrade.vkospi_below_n(0.2)
+# no_vixinvert = notrade.vix_curve_invert()
+
+# entry_condition = [
+#     dict(entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]))),
+#     dict(entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), no_vixinvert)),
+#     dict(entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), no_lowvol)),
+#     dict(entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), no_lowvol, no_vixinvert)),
+#     dict(entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]))),
+#     dict(entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), no_vixinvert)),
+#     dict(entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), no_lowvol)),
+#     dict(entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), no_lowvol, no_vixinvert)),
+#     dict(entry9 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]))),
+#     dict(entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), no_vixinvert)),
+#     dict(entry11 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), no_lowvol)),
+#     dict(entry12 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), no_lowvol, no_vixinvert)),
+#     dict(entry13 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]))),
+#     dict(entry14 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_vixinvert)),
+#     dict(entry15 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_lowvol)),
+#     dict(entry16 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_lowvol, no_vixinvert)),
+#     dict(entry17 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]))),
+#     dict(entry18 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_vixinvert)),
+#     dict(entry19 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_lowvol)),
+#     dict(entry20 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_lowvol, no_vixinvert))
+# ]
+
+# exit_condition = [
+#   dict(exit1 = [])
+#    ]
+
+# -------------------------------------------------------------------------
+
+# # 양매수
+
+# entry_condition = [
+#     dict(entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]))),
+#     dict(entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), lowvol_only1)),
+#     dict(entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), lowvol_only2)),
+#     dict(entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), no_highvol)),
+#     dict(entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]))),
+#     dict(entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), lowvol_only1)),
+#     dict(entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), lowvol_only2)),
+#     dict(entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), no_highvol)),
+#     dict(entry9 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]))),
+#     dict(entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), lowvol_only1))
+#     dict(entry11 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), lowvol_only2)),
+#     dict(entry12 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), no_highvol)),
+#     dict(entry13 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]))),
+#     dict(entry14 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only1)),
+#     dict(entry15 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only2)),
+#     dict(entry16 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), no_highvol)),
+#     dict(entry17 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))),
+#     dict(entry18 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), lowvol_only1)),
+#     dict(entry19 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), lowvol_only2)),
+#     dict(entry20 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_highvol)),
+# ]
+
+# exit_condition = [
+#   dict(exit1 = [])
+#    ]
+
+#%% 양매매 test
+
+entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_vixinvert)
+strat = {'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}
+exit = []
+stop = 1
+profit_take = 0.1
+stop_loss = -0.25
+dte_range = [42, 70]
+
+res = backtest.get_vertical_trade_result(df_monthly,
+                                              entry_dates = entry,
+                                              trade_spec = strat,
+                                              dte_range = dte_range,
+                                              exit_dates = exit,
+                                              stop_dte = stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+vol = vol_based_sizing(vkospi, 1, [0.5, 0.8])
+scaled_res = scale(res, vol)
+
+print(sum(res))
+plot(res)
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
+scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
+
+
+#%% 하락 test
+
+entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trenddown, lowvol_only2)
+strat = {'P': [('delta', -0.2, 1)]}
+exit = []
+# exit = get_date_union(df_weekly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5 , smooth_d = 5))
+stop = 0
+profit_take = 4
+stop_loss = -0.25
+dte_range = [7, 35]
+
+res = backtest.get_vertical_trade_result(df_monthly,
+                                              entry_dates = entry,
+                                              trade_spec = strat,
+                                              dte_range = dte_range,
+                                              exit_dates = exit,
+                                              stop_dte = stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+# 변동성 scaling
+vol = vol_based_sizing(vkospi, 1, [0.5, 0.8])
+scaled_res = scale(res, vol)
+
+print(sum(res))
+plot(res)
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
+scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
+
+
+#%% 상승_test
+
+entry =  get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), psar_trendup)
+strat = {'P': [('delta', -0.2, -1)]}
+# exit = get_date_intersect(df_weekly, psar_turndown)
+exit = []
+stop = 1
+profit_take = 0.25
+stop_loss = -1
+dte_range = [2, 9]
+
+res = backtest.get_vertical_trade_result(df_weekly,
+                                              entry_dates = entry,
+                                              trade_spec = strat,
+                                              dte_range = dte_range,
+                                              exit_dates = exit,
+                                              stop_dte = stop,
+                                              is_complex_strat = False,
+                                              profit_take = profit_take,
+                                              stop_loss = stop_loss)
+
+# 변동성 scaling
+vol = vol_based_sizing(vkospi, 1, [0.5, 0.8])
+scaled_res = scale(res, vol)
+
+print(sum(res))
+plot(res)
+cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
+scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
+
+#%% BACKTEST_월물풋매도
+
+#1. 진입조건
+
+from itertools import product
+import time
+
+#1. 요일별 벡테스트
 
 entry_condition = [
     dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)),
@@ -132,248 +356,33 @@ entry_condition = [
     dict(entry7 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), psar_trendup)),
     dict(entry8 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), supertrend_trendup)),
     dict(entry9 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), psar_trendup)),
-    dict(entry10 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), supertrend_trendup)),
-    dict(entry11 = get_date_intersect(df_monthly, psar_turnup)),
-    dict(entry12 = get_date_intersect(df_monthly, supertrend_turnup)),
-    dict(entry13 = get_date_intersect(df_monthly, bbands_turnup1)),
-    dict(entry14 = get_date_intersect(df_monthly, bbands_turnup2)),
-    dict(entry15 = get_date_intersect(df_monthly, stoch_turnup1)),
-    dict(entry16 = get_date_intersect(df_monthly, stoch_turnup2)),
-    dict(entry17 = get_date_intersect(df_monthly, rsi_turnup))
+    dict(entry10 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), supertrend_trendup))
 ]
 
-# exit_condition = [
-#     dict(exit1 = []),
-#     dict(exit2 = get_date_intersect(df_monthly, psar_turndown)),
-#     dict(exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))),
-#     dict(exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5)))
-# ]
+#2. 변동성 조건 추가한 백테스트
 
-
-# 하락진입조건
 entry_condition = [
-    dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trenddown)),
-    dict(entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trenddown)),
-    dict(entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), psar_trenddown)),
-    dict(entry4 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), supertrend_trenddown)),
-    dict(entry5 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), psar_trenddown)),
-    dict(entry6 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), supertrend_trenddown)),
-    dict(entry7 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), psar_trenddown)),
-    dict(entry8 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), supertrend_trenddown)),
-    dict(entry9 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), psar_trenddown)),
-    dict(entry10 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), supertrend_trenddown)),
-    dict(entry11 = get_date_intersect(df_monthly, psar_turndown)),
-    dict(entry12 = get_date_intersect(df_monthly, supertrend_turndown)),
-    dict(entry13 = get_date_intersect(df_monthly, bbands_turndown1)),
-    dict(entry14 = get_date_intersect(df_monthly, bbands_turndown2)),
-    dict(entry15 = get_date_intersect(df_monthly, stoch_turndown1)),
-    dict(entry16 = get_date_intersect(df_monthly, stoch_turndown2)),
-    dict(entry17 = get_date_intersect(df_monthly, rsi_turndown)),
+    dict(entry18 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol)),
+    dict(entry19 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol)),
+    dict(entry20 = get_date_intersect(df_monthly, psar_turnup, no_lowvol)),
+    dict(entry21 = get_date_intersect(df_monthly, supertrend_turnup, no_lowvol)),
+    dict(entry22 = get_date_intersect(df_monthly, bbands_turnup1, no_lowvol)),
+    dict(entry23 = get_date_intersect(df_monthly, bbands_turnup2, no_lowvol)),
+    dict(entry24 = get_date_intersect(df_monthly, stoch_turnup1, no_lowvol)),
+    dict(entry25 = get_date_intersect(df_monthly, stoch_turnup2, no_lowvol)),
+    dict(entry26 = get_date_intersect(df_monthly, rsi_turnup, no_lowvol))
 ]
-
-exit_condition = [
-    dict(exit1 = []),
-    dict(exit2 = get_date_intersect(df_monthly, psar_turnup)),
-    dict(exit3 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))),
-    dict(exit4 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5 , smooth_d = 5)))
-]
-
-# # 양매도
-# entry_condition = [
-#     dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]))),
-#     dict(entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_vixinvert)),
-#     dict(entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol)),
-#     dict(entry4 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_highvol)),
-#     dict(entry5 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol, no_vixinvert))
-# ]
-
-# # 양매수
-# entry_condition = [
-#     dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]))),
-#     dict(entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), lowvol_only1)),
-#     dict(entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), lowvol_only2)),
-# ]
- 
-
-#%% strangle_test
-
-strangle_entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), lowvol_only1)
-strangle = {'C': [('delta', 0.5, 1)], 'P': [('delta', -0.5, 1)]}
-exit = []
-stop = 0
-profit_take = 2
-stop_loss = -0.5
-dte_range = [7, 35]
-
-res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = strangle_entry,
-                                              trade_spec = strangle,
-                                              dte_range = dte_range,
-                                              exit_dates = exit,
-                                              stop_dte = stop,
-                                              is_complex_strat = False,
-                                              profit_take = profit_take,
-                                              stop_loss = stop_loss)
-
-vol = vol_based_sizing(vkospi, 1, [0.5, 0.8])
-scaled_res = scale(res, vol)
-
-sum(res)
-plot(res)
-cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
-scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
-
-
-
-#%% test
-
-entry =  get_date_intersect(df_monthly, bbands_turndown2)
-strat = {'P': [('delta', -0.3, -1), ('delta', -0.15, 2)]}
-exit = get_date_union(df_monthly, psar_turnup)
-# exit = []
-stop = 1
-profit_take = 2
-stop_loss = -0.5
-dte_range = [7, 35]
-
-res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = entry,
-                                              trade_spec = strat,
-                                              dte_range = dte_range,
-                                              exit_dates = exit,
-                                              stop_dte = stop,
-                                              is_complex_strat = True,
-                                              profit_take = profit_take,
-                                              stop_loss = stop_loss)
-
-# 변동성 scaling
-vol = vol_based_sizing(vkospi, 1, [0.5, 0.8])
-scaled_res = scale(res, vol)
-
-sum(res)
-plot(res)
-cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
-scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
-
-
-
-#%% call_test
-
-entry = get_date_intersect(df_monthly, bbands_turnup2)
-strat = {'C': [('delta', 0.3, -1), ('delta', 0.15, 2)]}
-# exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
-exit = []
-stop = 1
-profit_take = 6
-stop_loss = -3
-dte_range = [7, 35]
-
-res = backtest.get_vertical_trade_result(df_monthly,
-                                              entry_dates = entry,
-                                              trade_spec = strat,
-                                              dte_range = dte_range,
-                                              exit_dates = exit,
-                                              stop_dte = stop,
-                                              is_complex_strat = True,
-                                              profit_take = profit_take,
-                                              stop_loss = stop_loss)
-
-# 변동성 scaling
-vol = vol_based_sizing(vkospi, 1, [0.5, 0.8])
-scaled_res = scale(res, vol)
-
-sum(res)
-plot(res)
-cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
-scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
-
-#%% 상승 backtest
-
-#1. 진입조건
-
-from itertools import product
-import time
-
-psar_turnup = k200.psar.rebound(pos = 'l')
-psar_turndown = k200.psar.rebound(pos = 's')
-
-psar_trendup = k200.psar.trend(pos = 'l')
-psar_trenddown = k200.psar.trend(pos = 's')
-
-supertrend_turnup = k200.supertrend.rebound(pos = 'l', length = 7, atr_multiplier = 3)
-supertrend_turndown = k200.supertrend.rebound(pos = 's', length = 7, atr_multiplier = 3)
-
-supertrend_trendup = k200.supertrend.trend(pos = 'l', length = 7, atr_multiplier = 3)
-supertrend_trenddown = k200.supertrend.trend(pos = 's', length = 7, atr_multiplier = 3)
-
-bbands_turnup1 = k200.bbands.through_bbands(pos = 'l', length = 20, std = 2)
-bbands_turndown1 = k200.bbands.through_bbands(pos = 's', length = 20, std = 2)
-bbands_turnup2 = k200.bbands.through_bbands(pos = 'l', length = 60, std = 2)
-bbands_turndown2 = k200.bbands.through_bbands(pos = 's', length = 60, std = 2)
-
-stoch_turndown1 = k200.stoch.rebound1(pos = 's', k = 10, d = 5, smooth_d = 5)
-stoch_turnup1= k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
-stoch_turndown2 = k200.stoch.rebound1(pos = 's', k = 5, d = 3, smooth_d = 3)
-stoch_turnup2 = k200.stoch.rebound1(pos = 'l', k = 5, d = 3, smooth_d = 3)
-
-rsi_turnup = k200.rsi.rebound(pos = 'l')
-rsi_turndown = k200.rsi.rebound(pos = 's')
-
-
-#1. 진입조건
-entry_condition = [
-    dict(entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trendup)),
-    dict(entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trendup)),
-    dict(entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), psar_trendup)),
-    dict(entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), supertrend_trendup)),
-    dict(entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), psar_trendup)),
-    dict(entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), supertrend_trendup)),
-    dict(entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), psar_trendup)),
-    dict(entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trendup)),
-    dict(entry9 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trendup)),
-    dict(entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trendup)),
-    dict(entry11 = get_date_intersect(df_weekly, psar_turnup)),
-    dict(entry12 = get_date_intersect(df_weekly, supertrend_turnup)),
-    dict(entry13 = get_date_intersect(df_weekly, bbands_turnup1)),
-    dict(entry14 = get_date_intersect(df_weekly, bbands_turnup2)),
-    dict(entry15 = get_date_intersect(df_weekly, stoch_turnup1)),
-    dict(entry16 = get_date_intersect(df_weekly, stoch_turnup2)),
-    dict(entry17 = get_date_intersect(df_weekly, rsi_turnup))
-]
-
-
-#1. 진입조건
-# entry_condition = [
-#     dict(entry1 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), psar_trenddown)),
-#     dict(entry2 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), supertrend_trenddown)),
-#     dict(entry3 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), psar_trenddown)),
-#     dict(entry4 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), supertrend_trenddown)),
-#     dict(entry5 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), psar_trenddown)),
-#     dict(entry6 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [0]), supertrend_trenddown)),
-#     dict(entry7 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), psar_trenddown)),
-#     dict(entry8 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [1]), supertrend_trenddown)),
-#     dict(entry9 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), psar_trenddown)),
-#     dict(entry10 = get_date_intersect(df_weekly, weekday_entry(df_weekly, [2]), supertrend_trenddown)),
-#     dict(entry11 = get_date_intersect(df_weekly, psar_turndown)),
-#     dict(entry12 = get_date_intersect(df_weekly, supertrend_turndown)),
-#     dict(entry13 = get_date_intersect(df_weekly, bbands_turndown1)),
-#     dict(entry14 = get_date_intersect(df_weekly, bbands_turndown2)),
-#     dict(entry15 = get_date_intersect(df_weekly, stoch_turndown1)),
-#     dict(entry16 = get_date_intersect(df_weekly, stoch_turndown2)),
-#     dict(entry17 = get_date_intersect(df_weekly, rsi_turndown)),
-# ]
-
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 strat= [
-    {'P' : [('delta', -0.5, 1)]},
-    {'P' : [('delta', -0.25, 1)]},
-    {'P' : [('delta', -0.10, 1)]}
+    {'P' : [('delta', -0.2, -1)]},
+    {'P' : [('delta', -0.4, -1)]}
 ]
 
 #3. 어떤 만기 종목
 dte_range = [
-            [2, 9]
+            [7, 35],
+            [42, 70]
              ]
 
 #4. 청산 조건
@@ -384,11 +393,10 @@ exit_condition = [
     dict(exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5)))
 ]
 
-
 #5. 익절 
-profit_target = [0.2, 0.5, 1, 2, 999]
+profit_target = [0.25, 0.5, 0.8]
 #6. 손절
-stop_loss = [-0.2, -0.5, -1]
+stop_loss = [-0.2, -0.5, -1, -2]
 
 comb = list(product(entry_condition, strat, dte_range, exit_condition, profit_target, stop_loss))
 
@@ -403,12 +411,12 @@ for i in range(0, len(comb), 100):
         entry_value = list(entry.values())[0]
         exit_name = list(exit.keys())[0]
         exit_value = list(exit.values())[0]
-        res = backtest.get_vertical_trade_result(df_weekly,
+        res = backtest.get_vertical_trade_result(df_monthly,
                                 entry_dates = entry_value,
                                 trade_spec = trade,
                                 dte_range = dte,
                                 exit_dates = exit_value,
-                                stop_dte = 0,
+                                stop_dte = 1,
                                 is_complex_strat = False,
                                 profit_take = profit_target,
                                 stop_loss = stop_loss)
@@ -428,47 +436,57 @@ for i in range(0, len(comb), 100):
     csv_res.to_csv(f"./res_dump/{i}_{i} + 100.csv")
     del df_res
     del chunk
+#%% BACKTEST_월물풋매수
 
-#%% 
+#1. 진입조건
+
 from itertools import product
 import time
 
-lowvol_1 = notrade.vkospi_above_n(0.2)
-lowvol_2 = notrade.vkospi_above_n(0.5)
-
-#1. 진입조건
 entry_condition = [
-    dict(strangle_entry4 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [1]))),
-    dict(strangle_entry5 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [2]))),
-    dict(strangle_entry6 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [3]))),
-    dict(strangle_entry7 = get_date_intersect(df_monthly, lowvol_1, weekday_entry(df_monthly, [4])))
-    ]
+
+    dict(entry18 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trenddown, lowvol_only1)),
+    dict(entry19 = get_date_intersect(df_monthly, psar_turndown, lowvol_only1)),
+    dict(entry20 = get_date_intersect(df_monthly, supertrend_turndown, lowvol_only1)),
+    dict(entry21 = get_date_intersect(df_monthly, bbands_turndown2, lowvol_only1)),
+    dict(entry22 = get_date_intersect(df_monthly, stoch_turndown1, lowvol_only1)),
+    dict(entry23 = get_date_intersect(df_monthly, stoch_turndown2, lowvol_only1)),
+    dict(entry24 = get_date_intersect(df_monthly, rsi_turndown, lowvol_only1)),
+
+    dict(entry25 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trenddown, lowvol_only2)),
+    dict(entry26 = get_date_intersect(df_monthly, psar_turndown, lowvol_only2)),
+    dict(entry27 = get_date_intersect(df_monthly, supertrend_turndown, lowvol_only2)),
+    dict(entry28 = get_date_intersect(df_monthly, bbands_turndown2, lowvol_only2)),
+    dict(entry29 = get_date_intersect(df_monthly, stoch_turndown1, lowvol_only2)),
+    dict(entry30 = get_date_intersect(df_monthly, stoch_turndown2, lowvol_only2)),
+    dict(entry31 = get_date_intersect(df_monthly, rsi_turndown, lowvol_only2))
+]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
-
-buy_strangle =[
-    {'C': [('delta', 0.5, 1)], "P" : [('delta', -0.5, 1)]},
-    {'C': [('delta', 0.3, 1)], "P" : [('delta', -0.3, 1)]},
-    {'C': [('delta', 0.15, 1)], "P" : [('delta', -0.15, 1)]},
-    {'C': [('delta', 0.06, 1)], "P" : [('delta', -0.07, 1)]},
+strat= [
+    {'P' : [('delta', -0.2, 1)]},
+    {'P' : [('delta', -0.4, 1)]}
 ]
 
 #3. 어떤 만기 종목
 dte_range = [
-            [7, 35]
+            [7, 35],
              ]
 
 #4. 청산 조건
 exit_condition = [
-    dict(exit1 = [])
-    ]
+    dict(exit1 = []),
+    dict(exit2 = get_date_intersect(df_monthly, psar_turnup)),
+    dict(exit3 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =5 ,d =3 , smooth_d = 3))),
+    dict(exit4 = get_date_union(df_monthly, psar_turnup, k200.stoch.rebound1(pos ='l', k =10 ,d =5 , smooth_d = 5)))
+]
 
 #5. 익절 
-profit_target = [0.1, 0.25, 0.5, 1, 2, 4]
+profit_target = [1, 2, 4]
 #6. 손절
-stop_loss = [-0.1, -0.25, -0.5, -1]
+stop_loss = [-0.25, -0.5]
 
-comb = list(product(entry_condition, buy_strangle, dte_range, exit_condition, profit_target, stop_loss))
+comb = list(product(entry_condition, strat, dte_range, exit_condition, profit_target, stop_loss))
 
 for i in range(0, len(comb), 100):
 
@@ -506,5 +524,3 @@ for i in range(0, len(comb), 100):
     csv_res.to_csv(f"./res_dump/{i}_{i} + 100.csv")
     del df_res
     del chunk
-
-
