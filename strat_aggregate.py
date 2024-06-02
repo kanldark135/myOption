@@ -14,8 +14,7 @@ def custom_res(df_pnl, custom_weight):
 #%%  월물
 # 전략 추가/제거시 usecol 수정 필요
 
-# df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BF:DK", skiprows = [0])
-df_monthly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "BS:FD", skiprows = [0])
+df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DJ", skiprows = [0])
 n_lower = 0 # 운용규모 커질수록 적절하게 조정 -> rounding 때문에...
 n_higher = 80
 
@@ -88,7 +87,7 @@ pnl_int.to_csv("./ret.csv")
 
 #1. 전략별로 loop 하는 preprocessing
 
-df_weekly = pd.read_excel("./전략결과(240324).xlsx", sheet_name = 'total', usecols = "FF:HQ", skiprows = [0])
+df_weekly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "DL:FC", skiprows = [0])
 
 n_lower = 0
 n_higher = 60 # 운용규모 커질수록 적절하게 조정
@@ -161,4 +160,3 @@ res_int = pd.DataFrame(data = np.round(opt_result.x), index = df_pnl.columns, co
 
 res_int.to_csv("./res.csv")
 pnl_int.to_csv("./ret.csv")
-
