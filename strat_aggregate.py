@@ -25,47 +25,53 @@ n_of_strats = int(df_monthly.shape[1] / 2)
 df_pnl = pd.DataFrame()
 
 for i in range(n_of_strats):
-
-    df_dummy = df_monthly.iloc[:, 2*i : 2*i + 2]
+    df_dummy = df_monthly.iloc[:, 2 * i: 2 * i + 2]
     df_dummy = df_dummy.iloc[1:]
-
+    
     strat_name = df_dummy.columns[0]
-    df_dummy = df_dummy.dropna(axis = 0, subset = [strat_name], how = 'all')
-
+    df_dummy = df_dummy.dropna(axis=0, subset=[strat_name], how='all')
+    
     df_dummy = df_dummy.set_index(strat_name)
     df_dummy.columns = [strat_name]
     df_dummy.index.name = 'date'
-
+    
     dummy_date = pd.date_range('2010-01-01', '2023-07-31')
     df_dummy = df_dummy.reindex(dummy_date)
-    df_dummy.apply(pd.to_numeric, errors = 'coerce')
+    df_dummy.apply(pd.to_numeric, errors='coerce')
+    
+    df_dummy = df_dummy.fillna(method='ffill')
+    
+    df_pnl = pd.concat([df_pnl, df_dummy], axis=1)
 
-    df_dummy = df_dummy.fillna(method = 'ffill')
+# Drawdown calculation
+df_drawdown = df_pnl.apply(lambda x: x - x.cummax(), axis=0)
 
-    df_pnl = pd.concat([df_pnl, df_dummy], axis = 1)
-
-df_drawdown = df_pnl.apply(lambda x : x - x.cummax(), axis = 0)
-
+# Objective function definition
 def obj_function(weight, df_pnl):
     if len(weight) != df_pnl.shape[1]:
         raise IndexError("weight size not matching size of the pnl")
-    weighted_pnl = df_pnl.multiply(weight, axis = 1).sum(axis = 1)
+    weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
     weighted_drawdown = weighted_pnl - weighted_pnl.cummax()
-
+    
     max_pnl = weighted_pnl.max()
-    max_drawdown = min(weighted_drawdown.min(), -0.0001) # prevent divisionbyzero error
-
+    max_drawdown = min(weighted_drawdown.min(), -0.0001)  # prevent division by zero error
+    
     res = max_pnl / max_drawdown
-
+    
     return res
 
+# Initial weight
 weight = np.ones(n_of_strats)
 
-bound = [(0, n_higher) for i in range(n_of_strats)] # no selling
-const_1 = {'type' : 'ineq', 'fun' : lambda w : np.sum(w) - n_lower} # sum of all weight is 1
-const_2 = {'type' : 'ineq', 'fun' : lambda w : n_higher - np.sum(w)} # sum of all weight is 1
+# Bounds for the weights
+bound = [(0, n_higher) for _ in range(n_of_strats)]
 
-opt_result = sciop.minimize(obj_function, x0 = weight, args = (df_pnl), bounds = bound, constraints = [const_1, const_2])
+# Constraints
+const_1 = {'type': 'ineq', 'fun': lambda w: np.sum(w) - n_lower}  # sum of all weight should be >= n_lower
+const_2 = {'type': 'ineq', 'fun': lambda w: n_higher - np.sum(w)}  # sum of all weight should be <= n_higher
+
+# Minimize the objective function
+opt_result = sciop.minimize(obj_function, x0=weight, args=(df_pnl), bounds=bound, constraints=[const_1, const_2])
 
 pnl = df_pnl.multiply(opt_result.x).sum(axis = 1)
 dd = pnl - pnl.cummax()
