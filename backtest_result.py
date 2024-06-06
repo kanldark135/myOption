@@ -120,15 +120,28 @@ highvol_only = flip(notrade.vkospi_above_n(0.2))
 
 no_vixinvert = notrade.vix_curve_invert()
 
+vol2 = notrade.vkospi_above_n(0.2)
+
+vol3 = notrade.vkospi_below_n(0.2)
+vol4 = notrade.vkospi_above_n(0.4)
+
+vol5 = notrade.vkospi_below_n(0.4)
+vol6 = notrade.vkospi_above_n(0.6)
+
+vol7 = notrade.vkospi_below_n(0.6)
+vol8 = notrade.vkospi_above_n(0.8)
+
+vol9 = notrade.vkospi_below_n(0.8)
+
 # 각종 진입조건 : 전략결과.xlsx 에 있음
 
 #%% 양매매 test
 
-entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_vixinvert)
+entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_vixinvert, vol9)
 strat = {'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}
 exit = []
 stop = 1
-profit_take = 0.1
+profit_take = 0.8
 stop_loss = -0.25
 dte_range = [42, 70]
 
