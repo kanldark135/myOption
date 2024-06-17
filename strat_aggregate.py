@@ -14,8 +14,8 @@ def custom_res(df_pnl, custom_weight):
 #%%  월물
 # 전략 추가/제거시 usecol 수정 필요
 
-df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DJ", skiprows = [0])
-n = 93
+df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
+n = 94
 
 #1. 전략별로 loop 하는 preprocessing
 

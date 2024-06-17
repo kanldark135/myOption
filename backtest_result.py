@@ -166,13 +166,13 @@ scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 
 #%% 상승_test
 
-entry = get_date_intersect(df_monthly, rsi_turnup, no_lowvol)
-strat = {'P': [('delta', -0.4, -1)]}
-# exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
-exit = []
-stop = 1
-profit_take = 0.8
-stop_loss = -0.2
+entry = get_date_intersect(df_monthly, supertrend_turnup)
+strat = {'C': [('delta', 0.2, 1)]}
+exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
+# exit = []
+stop = 0
+profit_take = 4
+stop_loss = -0.25
 dte_range = [7, 35]
 
 res = backtest.get_vertical_trade_result(df_monthly,
