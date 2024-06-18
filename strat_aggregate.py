@@ -15,7 +15,7 @@ def custom_res(df_pnl, custom_weight):
 # 전략 추가/제거시 usecol 수정 필요
 
 df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
-n = 94
+n = 93
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -166,7 +166,7 @@ pnl_int.to_csv("./ret.csv")
 
 #%% 
 
-df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DJ", skiprows = [0])
+df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
 
 n_of_strats = int(df_monthly.shape[1] / 2)
 df_pnl = pd.DataFrame()
@@ -211,7 +211,7 @@ def obj_function(weight, df_pnl):
 weight = np.ones(n_of_strats)
 
 n_lower = 0
-n_higher = 100 # 운용규모 커질수록 적절하게 조정
+n_higher = 150 # 운용규모 커질수록 적절하게 조정
 
 bound = [(n_lower, n_higher) for i in range(n_of_strats)] # no selling
 
