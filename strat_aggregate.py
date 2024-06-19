@@ -14,8 +14,8 @@ def custom_res(df_pnl, custom_weight):
 #%%  월물
 # 전략 추가/제거시 usecol 수정 필요
 
-df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
-n = 93
+df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DJ", skiprows = [0])
+n = 135
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -91,9 +91,9 @@ pnl_int.to_csv("./ret.csv")
 
 #1. 전략별로 loop 하는 preprocessing
 
-df_weekly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "DL:FC", skiprows = [0])
+df_weekly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "DN:FE", skiprows = [0])
 
-n = 72
+n = 60
 
 n_of_strats = int(df_weekly.shape[1] / 2)
 df_pnl = pd.DataFrame()
@@ -166,13 +166,13 @@ pnl_int.to_csv("./ret.csv")
 
 #%% 
 
-df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
+df_weekly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "DN:FE", skiprows = [0])
 
-n_of_strats = int(df_monthly.shape[1] / 2)
+n_of_strats = int(df_weekly.shape[1] / 2)
 df_pnl = pd.DataFrame()
 
 for i in range(n_of_strats):
-    df_dummy = df_monthly.iloc[:, 2 * i: 2 * i + 2]
+    df_dummy = df_weekly.iloc[:, 2 * i: 2 * i + 2]
     df_dummy = df_dummy.iloc[1:]
     
     strat_name = df_dummy.columns[0]
@@ -194,7 +194,7 @@ for i in range(n_of_strats):
 df_drawdown = df_pnl.apply(lambda x: x - x.cummax(), axis=0)
 
 # Objective function definition
-def obj_function(weight, df_pnl):
+def obj_function_max_calmar(weight, df_pnl):
     if len(weight) != df_pnl.shape[1]:
         raise IndexError("weight size not matching size of the pnl")
     weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
@@ -206,6 +206,20 @@ def obj_function(weight, df_pnl):
     res = max_pnl / max_drawdown
     
     return res
+
+def obj_function_min_dd(weight, df_pnl):
+    if len(weight) != df_pnl.shape[1]:
+        raise IndexError("weight size not matching size of the pnl")
+    weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
+    weighted_drawdown = weighted_pnl - weighted_pnl.cummax()
+    
+    max_pnl = weighted_pnl.max()
+    max_drawdown = min(weighted_drawdown.min(), -0.0001)  # prevent division by zero error
+    
+    res = -max_drawdown
+    
+    return res
+
 
 # Initial weight
 weight = np.ones(n_of_strats)
