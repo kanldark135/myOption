@@ -16,7 +16,7 @@ def custom_res(df_pnl, custom_weight):
 
 df_monthly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
 n_size = 100
-optimal_multiplier = 1
+optimal_multiplier = 0.82
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -97,7 +97,7 @@ pnl_int.to_csv("./ret.csv")
 df_weekly = pd.read_excel("./전략결과(240530).xlsx", sheet_name = 'total', usecols = "DN:FE", skiprows = [0])
 
 n_size = 100
-optimal_multiplier = 1
+optimal_multiplier = 0.91
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -116,7 +116,7 @@ for i in range(n_of_strats):
     df_dummy.columns = [strat_name]
     df_dummy.index.name = 'date'
     
-    dummy_date = pd.date_range('2010-01-01', '2023-07-31')
+    dummy_date = pd.date_range('2019-01-01', '2023-07-31')
     df_dummy = df_dummy.reindex(dummy_date)
     df_dummy.apply(pd.to_numeric, errors='coerce')
     
