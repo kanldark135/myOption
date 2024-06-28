@@ -137,15 +137,19 @@ vol9 = notrade.vkospi_below_n(0.8)
 
 #%% 양매매 test
 
-entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_vixinvert, vol9)
-strat = {'C': [('delta', 0.06, -1)], 'P': [('delta', -0.07, -1)]}
-exit = []
-stop = 1
-profit_take = 0.8
-stop_loss = -0.25
-dte_range = [42, 70]
+lowvol_only1 = flip(notrade.vkospi_below_n(0.2))
+lowvol_only2 = flip(notrade.vkospi_below_n(0.5))
+no_highvol = notrade.vkospi_above_n(0.8)
 
-res = backtest.get_vertical_trade_result(df_monthly,
+entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only2)
+strat = {'C': [('number', 2.5, 1)], 'P': [('number', -2.5, 1)]}
+exit = []
+stop = 0
+profit_take = 1
+stop_loss = -0.1
+dte_range = [2, 9]
+
+res = backtest.get_vertical_trade_result(df_weekly,
                                               entry_dates = entry,
                                               trade_spec = strat,
                                               dte_range = dte_range,
@@ -234,7 +238,7 @@ scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 from itertools import product
 import time
 
-1. 요일별 벡테스트
+#1. 요일별 벡테스트
 
 entry_condition = [
     dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)),
