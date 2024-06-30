@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 
-df = pd.read_excel("C:/Users//hk.moon/Desktop/vkospi.xlsx", usecols = 'A:E', header = 0, index_col =  0)
+df = pd.read_excel("C:/Users/kanld/Desktop/vkospi.xlsx", usecols = 'A:E', header = 0, index_col =  0)
 
 df['전일종가_오늘종가'] = df['종가'] - df['종가'].shift(-1)
 df['전일종가_오늘고가'] = df['고가'] - df['종가'].shift(-1)
