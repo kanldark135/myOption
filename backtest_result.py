@@ -137,16 +137,17 @@ vol9 = notrade.vkospi_below_n(0.8)
 
 #%% 양매매 test
 
-lowvol_only1 = flip(notrade.vkospi_below_n(0.2))
-lowvol_only2 = flip(notrade.vkospi_below_n(0.5))
-no_highvol = notrade.vkospi_above_n(0.8)
+no_lowvol = notrade.vkospi_below_n(0.2)
+no_vixinvert = notrade.vix_curve_invert()
 
-entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [3]), lowvol_only2)
-strat = {'C': [('number', 2.5, 1)], 'P': [('number', -2.5, 1)]}
+entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_vixinvert)
+# strat = {'C': [('number', 7.5, -1)], 'P': [('number', -7.5, -1)]}
+strat = {'C': [('number', 5, -2), ('number', 7.5, 2)], 'P': [('number', -5, -2), ('number', -7.5, 2)]}
+
 exit = []
-stop = 0
-profit_take = 1
-stop_loss = -0.1
+stop = 1
+profit_take = 0.5
+stop_loss = -0.5
 dte_range = [2, 9]
 
 res = backtest.get_vertical_trade_result(df_weekly,
