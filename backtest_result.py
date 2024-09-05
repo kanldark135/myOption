@@ -81,7 +81,7 @@ def scale(df_result, df_sizing):
 
 # entry_date : 온갖 방법으로 entry date 도출
 
-from get_entry_date import get_date_intersect, get_date_union, weekday_entry, notrade, stoch_signal, rsi_signal, bband_signal, psar_signal, supertrend_signal
+from get_entry_date import get_date_intersect, get_date_union, weekday_entry, change_recent, notrade, stoch_signal, rsi_signal, bband_signal, psar_signal, supertrend_signal
 
 psar_turnup = k200.psar.rebound(pos = 'l')
 psar_turndown = k200.psar.rebound(pos = 's')
@@ -141,8 +141,9 @@ no_lowvol = notrade.vkospi_below_n(0.2)
 no_vixinvert = notrade.vix_curve_invert()
 
 entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]), no_vixinvert)
+# strat = {'C': [('delta', 0.15, -1)], 'P': [('delta', -0.15, -1)]}
+strat = {'C': [('delta', 0.15, -2), ('delta', 0.1, 2)], 'P': [('delta', -0.15, -2), ('delta', -0.1, 2)]}
 # strat = {'C': [('number', 7.5, -1)], 'P': [('number', -7.5, -1)]}
-strat = {'C': [('number', 5, -2), ('number', 7.5, 2)], 'P': [('number', -5, -2), ('number', -7.5, 2)]}
 
 exit = []
 stop = 1

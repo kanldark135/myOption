@@ -431,9 +431,40 @@ class notrade:
 
         return res
     
+# 저가매수 전략 : 직전 고점 대비 (전고점 말고)
 
-# 직전 고점 대비 하락폭 (통산 전고점 대비 drawdown 아님)
+def change_recent(df, change : float, ohlc = 'close'):
+
+    res = pd.DataFrame(index = df.index, columns = ['signal'])
+
+    if ohlc in ['close', 'open', 'high', 'low']:
+        df = df[ohlc]
+    else:
+        raise IndexError("ohlc must be close / open / high / low")
+
+    if change <= 0: # 전고점대비 change 만큼 낮으면 long signal
+        
+        higher_than_yesterday = df >= df.shift(1)
+        df_higher = df.where(higher_than_yesterday).fillna(method = 'ffill')
+
+        df = pd.concat([df, df_higher], axis = 1, join = 'inner')
+        df.columns = [ohlc, f"{ohlc}_high"]
+        df['chg'] = df[ohlc] / df[f"{ohlc}_high"] - 1
+
+        res = res.mask(df['chg'] <= change, 1)
     
+    if change > 0: # 전저점대비 change 만큼 높으면 short signal
+            
+        lower_than_yesterday = df < df.shift(1)
+        df_lower = df.where(lower_than_yesterday).fillna(method = 'ffill')
+
+        df = pd.concat([df, df_lower], axis = 1, join = 'inner')
+        df.columns = [ohlc, f"{ohlc}_lower"]
+        df['chg'] = df[ohlc] / df[f"{ohlc}_lower"] - 1
+
+        res = res.mask(df['chg'] > change, -1)
+
+    return res
 
 # 3. 돌파매매 시그널
 
