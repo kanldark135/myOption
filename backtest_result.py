@@ -172,16 +172,19 @@ scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 
 #%% 상승_test
 
-entry = get_date_intersect(df_monthly, supertrend_turnup)
-strat = {'C': [('delta', 0.2, 1)]}
-exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
-# exit = []
-stop = 0
-profit_take = 4
-stop_loss = -0.25
-dte_range = [7, 35]
+entry = get_date_intersect(df_weekly, change_recent(k200, -0.04, 'close'))
+# entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))
 
-res = backtest.get_vertical_trade_result(df_monthly,
+strat = {'C': [('delta', 0.4, 1)]}
+# strat = {'C': [('delta', 0.3, 1)]}
+# exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
+exit = []
+stop = 0
+profit_take = 2
+stop_loss = -0.5
+dte_range = [2, 9]
+
+res = backtest.get_vertical_trade_result(df_weekly,
                                               entry_dates = entry,
                                               trade_spec = strat,
                                               dte_range = dte_range,
@@ -243,56 +246,42 @@ import time
 #1. 요일별 벡테스트
 
 entry_condition = [
-    dict(entry1 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup)),
-    dict(entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), supertrend_trendup)),
-    dict(entry3 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), psar_trendup)),
-    dict(entry4 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [1]), supertrend_trendup)),
-    dict(entry5 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), psar_trendup)),
-    dict(entry6 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [2]), supertrend_trendup)),
-    dict(entry7 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), psar_trendup)),
-    dict(entry8 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [3]), supertrend_trendup)),
-    dict(entry9 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), psar_trendup)),
-    dict(entry10 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]), supertrend_trendup))
-]
-
-#2. 변동성 조건 추가한 백테스트
-
-entry_condition = [
-    dict(entry18 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), no_lowvol)),
-    dict(entry19 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol)),
-    dict(entry20 = get_date_intersect(df_monthly, psar_turnup, no_lowvol)),
-    dict(entry21 = get_date_intersect(df_monthly, supertrend_turnup, no_lowvol)),
-    dict(entry22 = get_date_intersect(df_monthly, bbands_turnup1, no_lowvol)),
-    dict(entry23 = get_date_intersect(df_monthly, bbands_turnup2, no_lowvol)),
-    dict(entry24 = get_date_intersect(df_monthly, stoch_turnup1, no_lowvol)),
-    dict(entry25 = get_date_intersect(df_monthly, stoch_turnup2, no_lowvol)),
-    dict(entry26 = get_date_intersect(df_monthly, rsi_turnup, no_lowvol))
+    dict(entry1 = get_date_intersect(df_monthly, change_recent(k200, -0.03, 'close'))),
+    dict(entry2 = get_date_intersect(df_monthly, change_recent(k200, -0.04, 'close'))),
+    dict(entry3 = get_date_intersect(df_monthly, change_recent(k200, -0.05, 'close'))),
+    dict(entry4 = get_date_intersect(df_monthly, change_recent(k200, -0.07, 'close')))
 ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 strat= [
-    {'P' : [('delta', -0.2, -1)]},
-    {'P' : [('delta', -0.4, -1)]}
+    {'C' : [('delta', 0.4, 1)]},
+    {'C' : [('delta', 0.2, 1)]},
+    {'C' : [('delta', 0.3, 1), ('delta', 0.15, -1)]},
+    {'C' : [('delta', 0.2, 1), ('delta', 0.1, -1)]},
+    # {'P' : [('delta', -0.4, 1)]},
+    # {'P' : [('delta', -0.2, 1)]},
+    # {'P' : [('delta', -0.3, 1), ('delta', -0.15, -1)]},
+    # {'P' : [('delta', -0.2, 1), ('delta', -0.1, -1)]},
+    # {'C' : [('delta', 0.3, 1), ('delta', -0.15, -1)]},
+    # {'C' : [('delta', 0.3, 1), ('delta', -0.15, -2)]},
+    # {'C' : [('delta', 0.3, -1), ('delta', -0.15, 1)]},
+    # {'C' : [('delta', 0.3, -1), ('delta', -0.15, 2)]},
 ]
 
 #3. 어떤 만기 종목
 dte_range = [
-            [7, 35],
-            [42, 70]
+            [7, 35]
              ]
 
 #4. 청산 조건
 exit_condition = [
-    dict(exit1 = []),
-    dict(exit2 = get_date_intersect(df_monthly, psar_turndown)),
-    dict(exit3 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =5 ,d =3 , smooth_d = 3))),
-    dict(exit4 = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5)))
+    dict(exit1 = [])
 ]
 
 #5. 익절 
-profit_target = [0.25, 0.5, 0.8]
+profit_target = [0.25, 0.5, 1, 2, 4, 999]
 #6. 손절
-stop_loss = [-0.2, -0.5, -1, -2]
+stop_loss = [-0.2, -0.5, -0.8]
 
 comb = list(product(entry_condition, strat, dte_range, exit_condition, profit_target, stop_loss))
 
@@ -312,7 +301,7 @@ for i in range(0, len(comb), 100):
                                 trade_spec = trade,
                                 dte_range = dte,
                                 exit_dates = exit_value,
-                                stop_dte = 1,
+                                stop_dte = 0,
                                 is_complex_strat = False,
                                 profit_take = profit_target,
                                 stop_loss = stop_loss)

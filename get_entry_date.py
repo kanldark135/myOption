@@ -435,6 +435,9 @@ class notrade:
 
 def change_recent(df, change : float, ohlc = 'close'):
 
+    # 추가 보완 (or 안해도 될...) : 저가는 전고점 / 현재 low랑 비교, 고가는 전저점 / 현재 high 랑 비교
+    # but 장중매매 입장에서 현재 가격이 당일 저점인지 고점인지 어짜피 모르므로 (백테스팅도 안 됨) 종가-종가 비교가 현실적이라는 판단
+
     res = pd.DataFrame(index = df.index, columns = ['signal'])
 
     if ohlc in ['close', 'open', 'high', 'low']:
