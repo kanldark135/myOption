@@ -172,25 +172,25 @@ scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 
 #%% 상승_test
 
-entry = get_date_intersect(df_weekly, change_recent(k200, -0.04, 'close'))
+entry = get_date_intersect(df_monthly, change_recent(k200, -0.08, 'close'))
 # entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))
 
-strat = {'C': [('delta', 0.4, 1)]}
+strat = {'C': [('delta', 0.3, 1), ('delta', 0.15, -2)]}
 # strat = {'C': [('delta', 0.3, 1)]}
 # exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
 exit = []
 stop = 0
-profit_take = 2
-stop_loss = -0.5
-dte_range = [2, 9]
+profit_take = 0.5
+stop_loss = -3
+dte_range = [7, 35]
 
-res = backtest.get_vertical_trade_result(df_weekly,
+res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = entry,
                                               trade_spec = strat,
                                               dte_range = dte_range,
                                               exit_dates = exit,
                                               stop_dte = stop,
-                                              is_complex_strat = False,
+                                              is_complex_strat = True,
                                               profit_take = profit_take,
                                               stop_loss = stop_loss)
 
@@ -234,8 +234,6 @@ plot(res)
 cum(res).drop(columns = ['drawdown']).to_csv("./ret.csv")
 scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 
-
-
 #%% BACKTEST_월물풋매도
 
 #1. 진입조건
@@ -243,34 +241,63 @@ scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 from itertools import product
 import time
 
+''' 이제 위클리세팅으로 다 바꾼다음 다시 돌리기 '''
+
 #1. 요일별 벡테스트
 
 entry_condition = [
-    dict(entry1 = get_date_intersect(df_monthly, change_recent(k200, -0.03, 'close'))),
-    dict(entry2 = get_date_intersect(df_monthly, change_recent(k200, -0.04, 'close'))),
-    dict(entry3 = get_date_intersect(df_monthly, change_recent(k200, -0.05, 'close'))),
-    dict(entry4 = get_date_intersect(df_monthly, change_recent(k200, -0.07, 'close')))
+    dict(entry1 = get_date_intersect(df_weekly, change_recent(k200, -0.03, 'close'))),
+    dict(entry2 = get_date_intersect(df_weekly, change_recent(k200, -0.04, 'close'))),
+    dict(entry3 = get_date_intersect(df_weekly, change_recent(k200, -0.05, 'close'))),
+    dict(entry4 = get_date_intersect(df_weekly, change_recent(k200, -0.08, 'close')))
 ]
+
+# entry_condition = [
+#     dict(entry1 = get_date_intersect(df_weekly, change_recent(k200, 0.03, 'close') * -1)),
+#     dict(entry2 = get_date_intersect(df_weekly, change_recent(k200, 0.04, 'close') * -1)),
+#     dict(entry3 = get_date_intersect(df_weekly, change_recent(k200, 0.05, 'close') * -1)),
+#     dict(entry4 = get_date_intersect(df_weekly, change_recent(k200, 0.06, 'close') * -1)),
+#     dict(entry5 = get_date_intersect(df_weekly, change_recent(k200, 0.08, 'close') * -1))
+# ]
 
 #2. 전략 선정 (종목 / 행사가 / 수량 / 포지션 선택)
 strat= [
     {'C' : [('delta', 0.4, 1)]},
     {'C' : [('delta', 0.2, 1)]},
     {'C' : [('delta', 0.3, 1), ('delta', 0.15, -1)]},
-    {'C' : [('delta', 0.2, 1), ('delta', 0.1, -1)]},
-    # {'P' : [('delta', -0.4, 1)]},
-    # {'P' : [('delta', -0.2, 1)]},
-    # {'P' : [('delta', -0.3, 1), ('delta', -0.15, -1)]},
-    # {'P' : [('delta', -0.2, 1), ('delta', -0.1, -1)]},
-    # {'C' : [('delta', 0.3, 1), ('delta', -0.15, -1)]},
-    # {'C' : [('delta', 0.3, 1), ('delta', -0.15, -2)]},
-    # {'C' : [('delta', 0.3, -1), ('delta', -0.15, 1)]},
-    # {'C' : [('delta', 0.3, -1), ('delta', -0.15, 2)]},
+    {'C' : [('delta', 0.2, 1), ('delta', 0.1, -1)]}
+    # {'P' : [('delta', -0.4, -1)]},
+    # {'P' : [('delta', -0.2, -1)]},
+    # {'P' : [('delta', -0.3, -1), ('delta', -0.15, 1)]},
+    # {'P' : [('delta', -0.2, -1), ('delta', -0.1, 1)]},
+    # {'C' : [('delta', 0.4, 1), ('delta', 0.2, -2)]},
+    # {'C' : [('delta', 0.3, 1), ('delta', 0.15, -2)]},
+    # {'C' : [('delta', 0.2, 1), ('delta', 0.1, -2)]},
+    # {'C' : [('delta', 0.4, -1), ('delta', 0.2, 2)]},
+    # {'C' : [('delta', 0.3, -1), ('delta', 0.15, 2)]},
+    # {'C' : [('delta', 0.2, -1), ('delta', 0.1, 2)]},
 ]
+
+# strat= [
+#     # {'P' : [('delta', -0.4, 1)]},
+#     # {'P' : [('delta', -0.2, 1)]},
+#     # {'P' : [('delta', -0.3, 1), ('delta', -0.15, -1)]},
+#     # {'P' : [('delta', -0.2, 1), ('delta', -0.1, -1)]},
+#     # {'C' : [('delta', 0.4, -1)]},
+#     # {'C' : [('delta', 0.2, -1)]},
+#     # {'C' : [('delta', 0.3, -1), ('delta', 0.15, 1)]},
+#     # {'C' : [('delta', 0.2, -1), ('delta', 0.1, 1)]},
+#     # {'P' : [('delta', -0.4, 1), ('delta', -0.2, -2)]},
+#     # {'P' : [('delta', -0.3, 1), ('delta', -0.15, -2)]},
+#     # {'P' : [('delta', -0.2, 1), ('delta', -0.1, -2)]},
+#     # {'P' : [('delta', -0.4, -1), ('delta', -0.2, 2)]},
+#     # {'P' : [('delta', -0.3, -1), ('delta', -0.15, 2)]},
+#     # {'P' : [('delta', -0.2, -1), ('delta', -0.1, 2)]},
+# ]
 
 #3. 어떤 만기 종목
 dte_range = [
-            [7, 35]
+            [2, 9]
              ]
 
 #4. 청산 조건
@@ -281,7 +308,12 @@ exit_condition = [
 #5. 익절 
 profit_target = [0.25, 0.5, 1, 2, 4, 999]
 #6. 손절
-stop_loss = [-0.2, -0.5, -0.8]
+stop_loss = [-0.25, -0.5, -1, -2, -3]
+
+# #5. 익절 
+# profit_target = [0.25, 0.5, 0.8]
+# #6. 손절
+# stop_loss = [-0.25, -0.5, -1, -2]
 
 comb = list(product(entry_condition, strat, dte_range, exit_condition, profit_target, stop_loss))
 
@@ -296,7 +328,7 @@ for i in range(0, len(comb), 100):
         entry_value = list(entry.values())[0]
         exit_name = list(exit.keys())[0]
         exit_value = list(exit.values())[0]
-        res = backtest.get_vertical_trade_result(df_monthly,
+        res = backtest.get_vertical_trade_result(df_weekly,
                                 entry_dates = entry_value,
                                 trade_spec = trade,
                                 dte_range = dte,
@@ -318,7 +350,7 @@ for i in range(0, len(comb), 100):
         print(start - end)
         
     csv_res = pd.DataFrame(df_res).T
-    csv_res.to_csv(f"./sellput2/{i}_{i} + 100.csv")
+    csv_res.to_csv(f"./backtest_res/{i}_{i} + 100.csv")
     del df_res
     del chunk
 #%% BACKTEST_월물풋매수
