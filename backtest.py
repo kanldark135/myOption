@@ -326,7 +326,7 @@ def get_single_expiry_result(df_pivoted,
             'trade_ret' : single_trade_res, # 해당 만기 내 개별 trade 들의 각각의 일수익금 df
             'final_ret' : final_ret, # 해당 만기 내 개별 trade 들의 각각의 최종수익금
             'trade_drawdown' : single_trade_res_summed.min(),
-            # 해당 만기 내 개별 trade 의 운용 중 최대 평가손실 (손절쳤으면 확정손실)
+            # 해당 만기 내 개별 trade 의 운용 중 "당일 하루" 최대 평가손실 (손절쳤으면 확정손실). trade_ret 상의 누적손실이 금액으로는 더 클수 있음
             'drawdown_date' : single_trade_res_summed.astype('float64').idxmin()
             # drawdown 발생한 날 / daily_ret 에서 식별하는 날과 다름 (이건 entry_date)
             }
