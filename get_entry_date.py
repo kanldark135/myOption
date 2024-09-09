@@ -387,6 +387,42 @@ class supertrend_signal:
             raise ValueError('pos must be l / s / b')
 
         return res
+    
+@ pd.api.extensions.register_dataframe_accessor('ma')
+class ma_signal:
+    def __init__(self, df : [pd.Series, pd.DataFrame]):
+        self.df = df
+    def is_updown(self, up_or_down, ohlc = 'close', kind = 'ema', length = 20):
+
+        """
+        현재 length 이평선이 단순히 전일대비 오르고있는지 / 내리고있는지 판단하는 signal
+
+        source : ohlc
+        up_or_down : only "up" or "down"
+        Available MAs
+        dema, ema, fwma, hma, linreg, midpoint, pwma, rma,
+        sinwma, sma, swma, t3, tema, trima, vidya, wma, zlma
+        """
+        
+        if up_or_down not in ['up', 'down']:
+            raise ValueError('up or down must be "up" or "down"')
+
+        else:
+            ma = ta.ma(kind, self.df[ohlc], length = length)
+            diff = ma - ma.shift(1)
+
+            if up_or_down == 'up':
+                df = diff.apply(lambda x : 1 if x > 0 else np.nan)
+            elif up_or_down == 'down':
+                df = diff.apply(lambda x : 1 if x < 0 else np.nan)
+
+            res = df.to_frame('signal')
+
+            return res 
+
+        
+
+
 
 # 3. 매매 안 하는 상황
 class notrade:

@@ -95,7 +95,7 @@ def scale(df_result, df_sizing):
 
 # entry_date : 온갖 방법으로 entry date 도출
 
-from get_entry_date import get_date_intersect, get_date_union, weekday_entry, change_recent, notrade, stoch_signal, rsi_signal, bband_signal, psar_signal, supertrend_signal
+from get_entry_date import get_date_intersect, get_date_union, weekday_entry, change_recent, notrade, ma_signal, stoch_signal, rsi_signal, bband_signal, psar_signal, supertrend_signal
 
 psar_turnup = k200.psar.rebound(pos = 'l')
 psar_turndown = k200.psar.rebound(pos = 's')
@@ -188,19 +188,24 @@ scaled_res.drop(columns = ['drawdown']).to_csv("./scaled_ret.csv")
 
 #%% 상승_test
 
-entry = get_date_intersect(df_weekly, change_recent(k200, -0.03, 'close'))
-# entry = get_date_intersect(df_weekly, weekday_entry(df_weekly, [4]))
+from get_entry_date import ma_signal
 
-strat = {'C': [('delta', 0.2, 1)]}
+ema20_up = k200.ma.is_updown('up', 'close', 'ema', length = 60)
+
+entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol, ema20_up)
+entry2 = get_date_intersect(df_monthly, weekday_entry(df_monthly, [0]), psar_trendup, no_lowvol)
+# entry = get_date_intersect(df_monthly, weekday_entry(df_monthly, [4]))
+
+strat = {'P': [('delta', -0.2, -1)]}
 # strat = {'C': [('delta', 0.3, 1)]}
-# exit = get_date_union(df_weekly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
-exit = []
-stop = 0
-profit_take = 0.25
-stop_loss = -0.5
-dte_range = [2, 9]
+exit = get_date_union(df_monthly, psar_turndown, k200.stoch.rebound1(pos ='s', k =10 ,d =5 , smooth_d = 5))
+# exit = []
+stop = 1
+profit_take = 0.8
+stop_loss = -0.2
+dte_range = [7, 35]
  
-res = backtest.get_vertical_trade_result(df_weekly,
+res = backtest.get_vertical_trade_result(df_monthly,
                                               entry_dates = entry,
                                               trade_spec = strat,
                                               dte_range = dte_range,

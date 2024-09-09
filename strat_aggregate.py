@@ -15,7 +15,7 @@ def custom_res(df_pnl, custom_weight):
 # 전략 추가/제거시 usecol 수정 필요
 
 df_monthly = pd.read_excel("./전략결과(240530~).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
-n_size = 1
+n_size = 100
 optimal_multiplier = 0.82
 
 #1. 전략별로 loop 하는 preprocessing
@@ -64,7 +64,7 @@ def obj_function(weight, df_pnl):
 weight = np.ones(n_of_strats) * optimal_multiplier
 
 # Bounds for the weights
-bound = [(0, 1) for _ in range(n_of_strats)]
+bound = [(0, 0.08) for _ in range(n_of_strats)]
 
 # Constraints
 const = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}  # sum of all weight should be >= n_lower
@@ -145,7 +145,7 @@ def obj_function(weight, df_pnl):
 weight = np.ones(n_of_strats) * optimal_multiplier
 
 # Bounds for the weights
-bound = [(0, 1) for _ in range(n_of_strats)]
+bound = [(0, 0.08) for _ in range(n_of_strats)]
 
 # Constraints
 const = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}  # sum of all weight should be >= n_lower
