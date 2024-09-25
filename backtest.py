@@ -5,23 +5,6 @@ import option_calc as calc
 import compute
 from datetime import datetime
 
-#%% 
-# #1. 데이터 불러오기 sqlite db
-
-# local_file_path = 'C:/Users/kanld/Desktop/option_k200.db'
-
-# conn = sql.db_connect(local_file_path)
-
-# query_select = '''
-#                 SELECT * FROM MONTHLY_TOTAL
-# '''
-# # query_select = '''
-# #                 SELECT * FROM weekly_total
-# # '''
-
-# df_raw = pd.read_sql(query_select, conn)
-# conn.close()
-
 
 #%%
 # import get_entry_date

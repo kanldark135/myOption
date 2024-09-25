@@ -14,9 +14,10 @@ def custom_res(df_pnl, custom_weight):
 #%%  월물
 # 전략 추가/제거시 usecol 수정 필요
 
-df_monthly = pd.read_excel("./전략결과(240530~).xlsx", sheet_name = 'total', usecols = "BO:DL", skiprows = [0])
+df_monthly = pd.read_excel("./전략결과(240530~).xlsx", sheet_name = 'total', usecols = "BO:DP", skiprows = [0])
+principal = 150000000 / 250000
 n_size = 100
-optimal_multiplier = 0.82
+optimal_multiplier = 0.2
 
 #1. 전략별로 loop 하는 preprocessing
 
@@ -47,7 +48,7 @@ for i in range(n_of_strats):
 df_drawdown = df_pnl.apply(lambda x: x - x.cummax(), axis=0)
 
 # Objective function definition
-def obj_function(weight, df_pnl):
+def obj_function_1(weight, df_pnl):
     if len(weight) != df_pnl.shape[1]:
         raise IndexError("weight size not matching size of the pnl")
     weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
@@ -60,22 +61,62 @@ def obj_function(weight, df_pnl):
     
     return res
 
+def obj_function_2(weight, df_pnl, principal, max_what = 'sharpe'):
+    
+    ''' 전략의 일일 손익데이터가 수익률이 아니라 수익금인 만큼
+    계산의 편의를 위해 전략에 대한 재투자는 없이 버는돈 족족 인출한다는 가정임'''
+
+    principal = principal / 250000 # 금액 -> 지수로 환산
+
+    if len(weight) != df_pnl.shape[1]:
+        raise IndexError("weight size not matching size of the pnl")
+    weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
+    weighted_drawdown = weighted_pnl - weighted_pnl.cummax()
+    weighted_daily_return = (weighted_pnl - weighted_pnl.shift(1)) / principal
+
+    daily_avg_return = weighted_daily_return.mean()
+    daily_std = weighted_daily_return.std()
+    daily_std_negative = weighted_daily_return.loc[weighted_daily_return > 0].std()
+
+    total_years = (weighted_daily_return.index[-1] - weighted_daily_return.index[0]).days / 365
+    total_return = weighted_pnl.iloc[-1] / principal - 1
+    annual_return = total_return / total_years
+    max_pnl = weighted_pnl.max()
+    max_loss = min(weighted_drawdown.min(), -0.0001)  # prevent division by zero error
+    max_drawdown = max_loss / principal
+
+    res_dict = dict(
+    max_pnl = max_pnl / max_loss,
+    sharpe = - np.sqrt(252) * daily_avg_return / daily_std, # turn negative for minimization
+    sortino = - np.sqrt(252) * daily_avg_return / daily_std_negative, # turn negative for minimization
+    calmar = annual_return / max_drawdown
+    )
+
+    res =  res_dict[max_what]
+    return res
+
 # Initial weight
-weight = np.ones(n_of_strats) * optimal_multiplier
+weight = np.ones(n_of_strats) / n_of_strats
 
 # Bounds for the weights
+# bound = [(0, 0.1) for _ in range(n_of_strats)]
 bound = [(0, 0.08) for _ in range(n_of_strats)]
 
 # Constraints
 const = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}  # sum of all weight should be >= n_lower
 
 # Minimize the objective function
-opt_result = sciop.minimize(obj_function, x0=weight, args=(df_pnl), bounds=bound, constraints=[const])
+# opt_result = sciop.minimize(obj_function_1, x0=weight, args=(df_pnl), bounds=bound, constraints=[const])
+opt_result = sciop.minimize(obj_function_2, x0=weight, args=(df_pnl, principal, 'calmar'), bounds=bound, constraints=[const], method = 'SLSQP')
+
+print(obj_function_2(opt_result.x, df_pnl, principal, 'sharpe'))
+print(obj_function_2(opt_result.x, df_pnl, principal, 'sortino'))
+print(obj_function_2(opt_result.x, df_pnl, principal, 'calmar'))
+print(obj_function_2(opt_result.x, df_pnl, principal, 'max_pnl'))
 
 pnl = df_pnl.multiply(opt_result.x).sum(axis = 1)
 dd = pnl - pnl.cummax()
 ratio = pnl.max() / dd.min()
-
 res = pd.DataFrame(data = opt_result.x, index = df_pnl.columns, columns = ['weight'])
 print(res)
 print(pnl ,dd, ratio)
@@ -94,7 +135,7 @@ pnl_int.to_csv("./ret.csv")
 
 #1. 전략별로 loop 하는 preprocessing
 
-df_weekly = pd.read_excel("./전략결과(240530~).xlsx", sheet_name = 'total', usecols = "DN:FE", skiprows = [0])
+df_weekly = pd.read_excel("./전략결과(240530~).xlsx", sheet_name = 'total', usecols = "DR:FC", skiprows = [0])
 
 n_size = 100
 optimal_multiplier = 0.91
@@ -128,7 +169,7 @@ for i in range(n_of_strats):
 df_drawdown = df_pnl.apply(lambda x: x - x.cummax(), axis=0)
 
 # Objective function definition
-def obj_function(weight, df_pnl):
+def obj_function_1(weight, df_pnl):
     if len(weight) != df_pnl.shape[1]:
         raise IndexError("weight size not matching size of the pnl")
     weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
@@ -141,22 +182,62 @@ def obj_function(weight, df_pnl):
     
     return res
 
+def obj_function_2(weight, df_pnl, principal, max_what = 'sharpe'):
+    
+    ''' 전략의 일일 손익데이터가 수익률이 아니라 수익금인 만큼
+    계산의 편의를 위해 전략에 대한 재투자는 없이 버는돈 족족 인출한다는 가정임'''
+
+    principal = principal / 250000 # 금액 -> 지수로 환산
+
+    if len(weight) != df_pnl.shape[1]:
+        raise IndexError("weight size not matching size of the pnl")
+    weighted_pnl = df_pnl.multiply(weight, axis=1).sum(axis=1)
+    weighted_drawdown = weighted_pnl - weighted_pnl.cummax()
+    weighted_daily_return = (weighted_pnl - weighted_pnl.shift(1)) / principal
+
+    daily_avg_return = weighted_daily_return.mean()
+    daily_std = weighted_daily_return.std()
+    daily_std_negative = weighted_daily_return.loc[weighted_daily_return > 0].std()
+
+    total_years = (weighted_daily_return.index[-1] - weighted_daily_return.index[0]).days / 365
+    total_return = weighted_pnl.iloc[-1] / principal - 1
+    annual_return = total_return / total_years
+    max_pnl = weighted_pnl.max()
+    max_loss = min(weighted_drawdown.min(), -0.0001)  # prevent division by zero error
+    max_drawdown = max_loss / principal
+
+    res_dict = dict(
+    max_pnl = max_pnl / max_loss,
+    sharpe = - np.sqrt(252) * daily_avg_return / daily_std, # turn negative for minimization
+    sortino = - np.sqrt(252) * daily_avg_return / daily_std_negative, # turn negative for minimization
+    calmar = annual_return / max_drawdown
+    )
+
+    res =  res_dict[max_what]
+    return res
+
 # Initial weight
-weight = np.ones(n_of_strats) * optimal_multiplier
+weight = np.ones(n_of_strats) / n_of_strats
 
 # Bounds for the weights
+# bound = [(0, 0.1) for _ in range(n_of_strats)]
 bound = [(0, 0.08) for _ in range(n_of_strats)]
 
 # Constraints
 const = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}  # sum of all weight should be >= n_lower
 
 # Minimize the objective function
-opt_result = sciop.minimize(obj_function, x0=weight, args=(df_pnl), bounds=bound, constraints=[const])
+# opt_result = sciop.minimize(obj_function_1, x0=weight, args=(df_pnl), bounds=bound, constraints=[const])
+opt_result = sciop.minimize(obj_function_2, x0=weight, args=(df_pnl, principal, 'calmar'), bounds=bound, constraints=[const], method = 'SLSQP')
+
+print(obj_function_2(opt_result.x, df_pnl, principal, 'sharpe'))
+print(obj_function_2(opt_result.x, df_pnl, principal, 'sortino'))
+print(obj_function_2(opt_result.x, df_pnl, principal, 'calmar'))
+print(obj_function_2(opt_result.x, df_pnl, principal, 'max_pnl'))
 
 pnl = df_pnl.multiply(opt_result.x).sum(axis = 1)
 dd = pnl - pnl.cummax()
 ratio = pnl.max() / dd.min()
-
 res = pd.DataFrame(data = opt_result.x, index = df_pnl.columns, columns = ['weight'])
 print(res)
 print(pnl ,dd, ratio)

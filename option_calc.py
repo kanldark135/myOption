@@ -19,11 +19,12 @@ def call_p(s, k, v, t, r, q = 0):
         d2 = d1 - v * np.sqrt(t)
         N_d2 = scistat.norm.cdf(d2)
         
-        price = s *np.exp(-q * t) * N_d1 - k * np.exp(-r * t) * N_d2
+        price = s * np.exp(-q * t) * N_d1 - k * np.exp(-r * t) * N_d2
     
     except TypeError as e:
         if any(np.isnan([s, k, v, t, r, q])):
             price = np.nan
+            raise TypeError("변수들이 nan 임")
         else:
             raise e
         
@@ -43,6 +44,7 @@ def put_p(s, k, v, t, r, q = 0):
     except TypeError as e:
         if any(np.isnan([s, k, v, t, r, q])):
             price = np.nan
+            raise TypeError("변수들이 nan 임")
         else:
             raise e
         
@@ -252,6 +254,7 @@ def get_option_data(component = 'iv', monthlyorweekly = 'monthly', cycle = 'fron
     
     res = atm_and_dte(res, atm = atm_range, dte = dte_range)     # 3. 원하는 ATM의 값 및 DTE
     return res
+
 
 def get_skewness(df):
     copy = df.filter(regex = r"\d")
