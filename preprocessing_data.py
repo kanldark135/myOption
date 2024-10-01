@@ -3,35 +3,34 @@ import sqlite3
 import numpy as np
 import option_calc
 
-conn =sqlite3.connect("C:/Users/kanld/Desktop/option.db")
-query = 'SELECT * FROM monthly'
+# table_name = 'weekly_thu'
+# conn =sqlite3.connect("C:/Users/kanld/Desktop/option_original.db")
+# query = f'SELECT * FROM {table_name}'
+# chunks = pd.read_sql(query, conn, index_col = 'date', chunksize = 50000)
+# data = pd.concat(chunks)
 
+def process_raw_data(data, table_name):
 
-def process_raw_data(conn, table_name):
-
-    query = f'SELECT * FROM {table_name}'
-
-    df = pd.read_sql_query(query, con = conn, index_col = ['date'])
-    df.index = pd.to_datetime(df.index)
+    data.index = pd.to_datetime(data.index)
 
     #3. (완료) 만기일(expiry), 잔존만기(dte : 오늘 - 만기일) 컬럼 만들기 -> 별도로 만기 계산해놔야함
     # 잔존만기는 만기당일 dte = 0.0001으로 떨어지게끔 나중에 그릭계산할때 별도 처리
 
-    exp_date = pd.read_excel("./aux_data.xlsx", sheet_name = table_name, usecols = 'A:B', index_col = 'exp')
-    df = df.merge(exp_date, how = 'inner', left_on = 'exp', right_index = True)
-    df['dte'] = df['exp_date'] - df.index
-    df['dte'] = df['dte'].dt.days
+    exp_date = pd.read_excel("./aux_data.xlsx", sheet_name = table_name, usecols = 'A:B', index_col = 'exp', dtype = {'exp' : 'object'})
+    data = data.merge(exp_date, how = 'inner', left_on = 'exp', right_index = True)
+    data['dte'] = data['exp_date'] - data.index
+    data['dte'] = data['dte'].dt.days
 
     #4. 당일 코스피200 ohlc / 당일 IV / 당일 할인금리 붙여서 컬럼 만들기
     
     k200 = pd.read_excel("./aux_data.xlsx", sheet_name = 'k200', usecols = 'A:E', index_col = 'date')
-    df = df.merge(k200, how = 'left', left_index = True, right_index = True)
+    data = data.merge(k200, how = 'left', left_index = True, right_index = True)
         
     iv = pd.read_excel("./aux_data.xlsx", sheet_name = 'iv', usecols = 'A,E', index_col = 'date')
-    df = df.merge(iv, how = 'left', left_index = True, right_index = True)
+    data = data.merge(iv, how = 'left', left_index = True, right_index = True)
 
     short_rate = pd.read_excel("./aux_data.xlsx", sheet_name = 'rate', usecols = 'A:B', index_col = 'date')
-    df = df.merge(short_rate, how = 'left', left_index = True, right_index = True)
+    data = data.merge(short_rate, how = 'left', left_index = True, right_index = True)
 
     #5. atm 및 moneyness 계산해놓기
 
@@ -44,48 +43,63 @@ def process_raw_data(conn, table_name):
         return result
 
     atm = k200['close_k200'].apply(find_closest_strike).rename('atm')
-    df = df.merge(atm, how = 'left', left_index = True, right_index = True)
+    data = data.merge(atm, how = 'left', left_index = True, right_index = True)
     
     # 콜풋 모두 외가를 양수로 치환
 
-    sign_dummy = df['cp'].apply(lambda x : 1 if x == 'C' else -1)
-    df['moneyness'] = (df['strike'] - df['atm']).multiply(sign_dummy)
+    sign_dummy = data['cp'].apply(lambda x : 1 if x == 'C' else -1)
+    data['moneyness'] = (data['strike'] - data['atm']).multiply(sign_dummy)
     
     #6. adj_price
-    
     # price == '-' 에 interp 밀어넣기 : 변동성은 거래소에서 제공한대로 직선보간된거 그대로 사용
 
-    df_call = df.loc[df['cp'] == 'C']
-    df['price_interp'] = df.loc[call_mask]np.where(call_mask, option_calc.call_p(df.close_k200, 
-                                                                df.strike, 
-                                                                df.iv/100,
-                                                                (df.dte + 1)/365, # 중요! : Pricing 할때 +1일 해서 실시 / 만기 당일 종가는 내재가치로 날리기
-                                                                df.rate/100),                     
-                                            option_calc.put_p(df.close, 
-                                                              df.strike, 
-                                                              df.iv/100, 
-                                                              (df.dte + 1)/365, 
-                                                              df.rate/100)
-    )
-     
-    df['adj_price'] = df['close']
+    def calculate_additional_info(row):
+
+        s = row['close_k200']
+        k = row['strike']
+        v = row['iv'] / 100
+        t = (row['dte'] + 1) / 365 # 계산할때는 하루남은걸 dte = 2 / 만기당일인걸 dte = 1로 넣어서 계산
+        r = row['rate'] / 100
+
+        if row['cp'] == 'C':
+
+            # 만기당일 에러 안나는 계산을 위해 dte =0 이면 dte ~0값으로 바꾸기
+
+            if row['dte'] == 0:
+                t = 0.0001            
+                price = np.maximum(row['close_k200'] - row['strike'], 0)        # dte ==0 이면 가격은 내재가치로 바꾸기
+            
+            else:
+                price = np.maximum(np.round(option_calc.call_p(s, k, v, t, r), 2), 0.01)
         
-    df['adj_price'] = df['price'].mask((df['price'].isna())|(df['price'].eq(0)), df['price_interp'])
-    df['adj_price'] = df['adj_price'].mask(df['adj_price'].lt(0.01), 0.01)
-    # dte = 0일때는 아예 내재가치로 바꾸기
-    df['adj_price'] = df['adj_price'].mask((df['dte'] == 0) & (df['cp'] == "C"), np.maximum(df['close'] - df['strike'], 0))
-    df['adj_price'] = df['adj_price'].mask((df['dte'] == 0) & (df['cp'] == "P"), np.maximum(df['strike'] - df['close'], 0))
+            delta = np.round(option_calc.call_delta(s, k, v, t, r), 3)
+            gamma = np.round(option_calc.gamma(s, k, v, t, r), 3)
+            theta = np.round(option_calc.call_theta(s, k, v, t, r), 3)
+            vega = np.round(option_calc.vega(s, k, v, t, r), 3)
+
+        elif row['cp'] == 'P':
+
+            # 만기당일 에러 안나는 계산을 위해 dte =0 이면 dte ~0값으로 바꾸기
+
+            if row['dte'] == 0:
+                t = 0.0001            
+                price = np.maximum(row['strike'] - row['close_k200'], 0)        # dte ==0 이면 가격은 내재가치로 바꾸기
+            
+            else:
+                price = np.maximum(np.round(option_calc.put_p(s, k, v, t, r), 2), 0.01)
+        
+            delta = np.round(option_calc.put_delta(s, k, v, t, r), 3)
+            gamma = np.round(option_calc.gamma(s, k, v, t, r), 3)
+            theta = np.round(option_calc.put_theta(s, k, v, t, r), 3)
+            vega = np.round(option_calc.vega(s, k, v, t, r), 3)
+
+        res = pd.Series([price, delta, gamma, theta, vega])
+
+        return res
     
-    # greeks computed from interpolated iv
+    data[['adj_price', 'delta', 'gamma', 'theta', 'vega']] = data.apply(calculate_additional_info, axis = 1)
 
-    df['delta'] = np.where(call_mask, calc.call_delta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield), calc.put_delta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield))
-    df['gamma'] = calc.gamma(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield)
-    df['theta'] = np.where(call_mask, calc.call_theta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield), calc.put_theta(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield))
-    df['vega'] = calc.vega(df.close, df.strike, df.iv_interp, df.dte/365, df.rate/100, df.div_yield)
+    # df['adj_price'].mask(df['close'].isna(), df['close']) 
+    # "만약 1건이라도 거래가 있으면 adj_price 에 거래가격을 쓴다" 인데, 내가격 / 차월물로 갈수록 오히려 주어진 변동성에서 추출해서 재계산한 값이 더 맞는것 같아서 안 씀
 
-    
-    #7. 당일 그릭값 계산해서 각 컬럼 만들기
-
-
-
-conn.close()
+    return data

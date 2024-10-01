@@ -126,7 +126,9 @@ def call_theta(s, k, v, t, r, q = 0):
         d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         d2 = d1 - v * np.sqrt(t)
         
-        theta = - (s * np.exp(-q * t) * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) - (r * k * np.exp(-r * t) * scistat.norm.cdf(d2)) + (q * s * np.exp(-q * t) * scistat.norm.cdf(d1))
+        theta = - (s * np.exp(-q * t) * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) 
+        - (r * k * np.exp(-r * t) * scistat.norm.cdf(d2)) 
+        + (q * s * np.exp(-q * t) * scistat.norm.cdf(d1))
         call_theta = theta/365
     
     except TypeError as e:
@@ -144,7 +146,9 @@ def put_theta(s, k, v, t, r, q = 0):
         d1 = (np.log(s / k) + (r - q + np.power(v, 2)/2) * t) / (v * np.sqrt(t))
         d2 = d1 - v * np.sqrt(t)
         
-        theta = - (s * np.exp(-q * t) * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) + (r * k * np.exp(-r * t) * scistat.norm.cdf(-d2)) - (q * s * np.exp(-q * t) * scistat.norm.cdf(-d1))
+        theta = - (s * np.exp(-q * t) * v * scistat.norm.pdf(d1) / (2 * np.sqrt(t))) 
+        + (r * k * np.exp(-r * t) * scistat.norm.cdf(-d2)) 
+        - (q * s * np.exp(-q * t) * scistat.norm.cdf(-d1))
         put_theta = theta/365
 
     except TypeError as e:

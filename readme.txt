@@ -144,17 +144,7 @@ backtest.py
     # 병렬처리 코드로 바꾸기 : concurrent.futures / multithreading / asyncio
 
 
-preprocessing.py
-
-ㅁ미완
-# 데이터 포맷 바뀌게되는 상황 + 신규 데이터 들어오는거 로데이터 어떻게 업데이트할지 재차 고민 (preprocessing 모듈의 1/2번 단락들)
-
-
-ㅁ완료
-    # interp 가격 -> price nan/0에 밀어넣기 + dte = 1일때는 내재가치로 바꾸기 / 0.01 이하 가격 0.01로 통일시키기
-    # db에 테이블 밀어넣기 + 복수 테이블로 데이터들 파편화하는 구조 생각해보기
 
 option_calc.py
-
 
 ㅁ 스큐 / 텀 구하는 식 수정하기

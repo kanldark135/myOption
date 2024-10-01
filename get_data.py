@@ -1,13 +1,15 @@
 import requests
 import pandas as pd
-from datetime import datetime as dt
+import numpy as np
 import json
 import time
+import datetime
 import sqlite3
+import preprocessing_data
 
-trade_date = '20240924'
-today = '20240925'
-product_id = 'KRDRVOPWKI' 
+# trade_date = '20240924'
+# today = '20240925'
+# product_id = 'KRDRVOPWKI' 
 
 product_id_placeholder = {'KRDRVOPK2I' : 'monthly',
                         'KRDRVOPWKI' : 'weekly_thu',
@@ -89,42 +91,64 @@ def get_data(trade_date:str, today:str, product_id:str):
     #3. 종목명에서 정보 분리해내기
     data[['cp', 'exp', 'strike']] = data['name'].str.split(pat = " ", expand = True)[[1, 2, 3]]
 
+    # 데이터타입 좀 더 효율적으로 바꾸기
 
-    #3. 만기일(expiry), 잔존만기(dte : 오늘 - 만기일) 컬럼 만들기 -> 별도로 만기 계산해놔야함
-    #4. 당일 코스피200 ohlc / 당일 할인금리 붙여서 컬럼 만들기
-    #5. moneyness 계산해놓기
-    #6. 거래안되서 가격없는애들 -> 거래소데이터에는 IV는 있으므로 interpolation 은 불필요 / 그냥 있는 iv에 adj_price 구하기
-    #7. 당일 그릭값 계산해서 각 컬럼 만들기
+    # volume 쪽 바꾸기
+    def str_to_int(df_series):
+        df = df_series.astype(str).str.replace(",", "") # 1) str 포맷의 콤마 없애기
+        df = pd.to_numeric(df, errors = 'coerce')
+        df = df.fillna(0).astype("int64")
+
+        return df
+    
+    data.index = pd.to_datetime(data.index).date
+    # 인덱스를 datetime 이 아니라 string 형태로 일단 저장해야 나중에 indexing 할때 편해보임
+    # datetime 으로 바꾸는건 나중에 작업할 때 파이썬에 불러와서 수정
+
+    data['exp'] = data['exp'].astype(str).str.replace(".0", "") # exp도 일부러 문자형으로 변환하되 소수점만 제거
+
+    data['strike'] = data['strike'].astype('float64') 
+
+    data['close'] = pd.to_numeric(data['close'], errors = 'coerce').astype('float64').round(2)
+    data['open'] = pd.to_numeric(data['open'], errors = 'coerce').astype('float64').round(2)
+    data['high'] = pd.to_numeric(data['high'], errors = 'coerce').astype('float64').round(2)
+    data['low'] = pd.to_numeric(data['low'], errors = 'coerce').astype('float64').round(2) 
+    data['iv'] = pd.to_numeric(data['iv'], errors = 'coerce').astype('float64').round(2)
+
+    data['trd_volume'] = str_to_int(data['trd_volume'])
+    data['trd_value'] = str_to_int(data['trd_value'])
+    data['open_interest'] = str_to_int(data['open_interest'])
 
     return data
 
-def save_to_db(data, product_id, path = "C:/Users/kanld/Desktop/option.db"):
+def save_to_db(data, product_id, db_path = "C:/Users/kanld/Desktop/option.db"):
 
-    product_id_placeholder = {'KRDRVOPK2I' : 'monthly',
+    product_id_placeholder = {
+                        'KRDRVOPK2I' : 'monthly',
                         'KRDRVOPWKI' : 'weekly_thu',
                         'KRDRVOPWKM' : 'weekly_mon'}
     
     table_name = product_id_placeholder[product_id]
     
-    conn = sqlite3.connect(path)
+    conn = sqlite3.connect(db_path)
     cur = conn.cursor()
 
     data.to_sql(table_name, conn, if_exists = "append", index = True)
 
     conn.close()
 
-
-start_date = '20240801'
-end_date = '20240924'
-
-def save_multiple_dates(start_date, end_date, today):
+def save_multiple_dates(start_date, end_date, today, db_path = "C:/Users/kanld/Desktop/option.db"):
 
     date_range = pd.date_range(start_date, end_date)
     product_id_placeholder = {
-                        'KRDRVOPWKI' : 'weekly_thu',
-                        'KRDRVOPWKM' : 'weekly_mon'}
+                        'KRDRVOPK2I' : 'monthly'
+                        # 'KRDRVOPWKI' : 'weekly_thu',
+                        # 'KRDRVOPWKM' : 'weekly_mon'
+                        }
     
     for product_id in product_id_placeholder.keys():
+        start_time = time.time()
+
         for date in date_range:
             date_str = date.strftime('%Y%m%d')
             data = get_data(date_str, today, product_id)
@@ -133,5 +157,19 @@ def save_multiple_dates(start_date, end_date, today):
                 print(f"{date_str} 데이터 없어서 저장 안하고 패스")
                 continue
 
-            save_to_db(data, product_id)
+            data = preprocessing_data.process_raw_data(data, product_id_placeholder[product_id])
+            save_to_db(data, product_id, db_path)
             print(f"{product_id_placeholder[product_id]} 테이블에 {date_str} 날짜 데이터 저장 완료")
+        end_time = time.time()
+        print(f"{product_id} 전부 불러오는데 {end_time - start_time} 초 걸림")
+
+
+if __name__ == "__main__":
+
+    start_date = '20240801'
+    end_date = '20240930'
+    today = '20240930' # 주말이나 휴일에 조회할때는 직전영업일로
+    # today = datetime.datetime.today().strftime("%Y%m%d")
+    db_path = "C:/Users/kanld/Desktop/option.db"
+
+    save_multiple_dates(start_date, end_date, today, db_path)
