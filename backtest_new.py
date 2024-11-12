@@ -604,6 +604,7 @@ def get_statistics(df_backtest):
     avg_loss = loss['cum_pnl'].mean()
     largest_loss = loss['cum_pnl'].min()
  
+# 11
 
 
 # 해야하는거
