@@ -5,59 +5,6 @@ import option_calc as calc
 import compute
 from datetime import datetime
 
-
-#%%
-# import get_entry_date
-
-# df = pd.read_pickle('./working_data/df_monthly.pkl')
-# df_k200 = pd.read_pickle('./working_data/df_k200.pkl')
-
-# grouped = df.groupby('expiry')
-# all_expiry = grouped.groups.keys()
-
-# trade_spec = {'P' : [('delta', -0.2, -1)]}
-# dte_range = [42, 70]
-# is_complex_strat = False
-# profit_take = 0.5
-# stop_loss = -2
-
-# entry_cond1 = get_entry_date.weekday_entry(df_k200, [0, 4])
-# entry_cond2 = df_k200.trend.psar_trend('l')
-# entry_dates = get_entry_date.get_date_intersect(df, entry_cond1, entry_cond2)
-
-# exit_cond1 = df_k200.contra.psar_rebound('s')
-# exit_dates = get_entry_date.get_date_intersect(df, exit_cond1)
-
-# sample = grouped.get_group('2020-03-12')
-# sample_pivoted = sample.pipe(get_pivot_table)
-
-# #1.
-# trades = create_trade_entries(sample_pivoted, entry_dates, trade_spec)
-
-# #2.
-# res = get_single_trade_result(sample_pivoted, trades[1])
-
-# trade_res = list(map(lambda trade : get_single_trade_result(sample_pivoted, trade), trade_entry))
-# trade_res_stopped = list(map(lambda result : stop_single_trade(result, is_complex_strat = is_complex_strat, profit_take = profit_take, stop_loss = stop_loss), trade_res))
-
-# ret = get_single_expiry_result(df_pivoted = sample_pivoted, 
-#                     entry_dates = entry_dates, 
-#                     trade_spec = trade_spec,
-#                     dte_range = dte_range,                       
-#                     is_complex_strat = is_complex_strat, 
-#                     profit_take = profit_take, 
-#                     stop_loss = stop_loss)
-
-# result = get_vertical_trade_result(sample,
-#                     entry_dates = entry_dates,
-#                     trade_spec = trade_spec,
-#                     dte_range = dte_range,                        
-#                     is_complex_strat = is_complex_strat, 
-#                     profit_take = profit_take, 
-#                     stop_loss = stop_loss
-#                     )
-
-
 #%% general 함수 : option function 으로 옮길것
 
 # raw data 에서 옵션 pivot_table 구하는 함수

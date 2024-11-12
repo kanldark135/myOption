@@ -106,7 +106,14 @@
 
 ㅁ 모듈별 추후 과제
 
-backtest.py
+ㅇbacktest.py
+    - 쿼리기반으로 완전히 갈아엎는중
+
+
+ㅇ별개의 변동성 커브 테이블 만들기
+    - 위 쿼리 살짝 수정해서 매일마다 / 근, 차월물별로 (혹은 너무 근월물로 들어오면 왜곡되므로) / 콜풋 외가격 I
+
+
 
 ㅁ 미완
 
@@ -142,6 +149,11 @@ backtest.py
         # 현실적으로 매 signal 마다 포지션 들어가는데 그것가지 sizing 하는건 증거금 관리에 어긋남...
         # 한 주에 해야 할 수량 정하고 signal 마다 나누어서 진입 -> 0 ~ 5(max)
     # 병렬처리 코드로 바꾸기 : concurrent.futures / multithreading / asyncio
+
+
+새로 만들것
+
+1. 변동성만 뽑아내서 일별로 vol curve db 만들기 => 가지고 뭔가 분석해보기 (iv_analysis.py 참고)
 
 
 
