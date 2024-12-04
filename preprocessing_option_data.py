@@ -21,7 +21,7 @@ def process_raw_data(data, table_name):
     if isinstance(data.index, pd.DatetimeIndex):
         data.index = data.index.date.astype(str) # data의 인덱스 string 으로 변환
 
-    conn = sqlite3.connect("./option.db")
+    conn = sqlite3.connect("C:/Users/kwan/Desktop/commonDB/db_option.db")
 
     exp_date = pd.read_sql(f"SELECT * FROM exp_{table_name}", conn, index_col = 'exp')
     data = data.merge(exp_date, how = 'inner', left_on = 'exp', right_index = True)
@@ -33,7 +33,7 @@ def process_raw_data(data, table_name):
 
     #4. 당일 코스피200 ohlc / 당일 IV / 당일 할인금리 붙여서 컬럼 만들기
 
-    conn = sqlite3.connect("./db_timeseries.db")    
+    conn = sqlite3.connect("C:/Users/kwan/Desktop/commonDB/db_timeseries.db")    
 
     k200 = pd.read_sql("SELECT * FROM k200", conn, index_col = 'date')
     k200.columns = k200.columns.str.cat(["_k200"] * len(k200.columns))

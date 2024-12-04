@@ -12,11 +12,13 @@ import pandas_ta as ta
 # df_monthly = pd.read_pickle("./working_data/df_monthly.pkl")
 # df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")
 
-def get_date_intersect(option_df, *args): # df_1과 df_2가 동시에 적용디는 날짜만 분리
-    ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
-    dummy = pd.DataFrame(index = option_df.index.unique(), columns = ['signal'])
-    dummy['signal'] = 1
-    for i in args:
+def get_date_intersect(*args): # df_1과 df_2가 동시에 적용디는 날짜만 분리
+
+    dummy = pd.DataFrame()
+    i = 0
+    for entry_date in args:
+        if i == 0:
+            dummy = entry_date
         dummy = dummy.multiply(i)
 
     res = dummy.loc[dummy['signal'] == 1].index

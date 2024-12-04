@@ -160,6 +160,6 @@ if __name__ == "__main__":
     start_date = '20241001'
     end_date = '20241031'
     today = '20241101' # 주말이나 휴일에 조회할때는 직전영업일로
-    db_path = "C:/Users/kwan/Desktop/myOption/option.db"
+    db_path = "C:/Users/kwan/Desktop/commonDB/db_option.db"
 
     save_multiple_dates(start_date, end_date, today, db_path)

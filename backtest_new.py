@@ -6,18 +6,17 @@ import datetime
 import time
 import typing
 import joblib
+import matplotlib.pyplot as plt
 
-findata_path = "./db_timeseries.db"
-option_path ="./option.db"
 
-def get_findata(db_path, *args):
+def get_timeseries(db_path, *args):
 
-    conn = sqlite3.connect(findata_path)
-
+    conn = sqlite3.connect(db_path)
     res = dict()
     
     for name in args:
         df = pd.read_sql_query(f"SELECT * from {name}", conn, index_col = "date")
+        df.index = pd.to_datetime(df.index)
         res[name] = df
 
     conn.close()
@@ -290,13 +289,16 @@ def get_single_month(entry_date,
 # (np.vectorize / df['date'].apply 등 모두 생각했던것보다 느림)
 # 일단 일괄적으로 불러다가 df_aggregate.groupby 실시 후 각 subgroup 에 대해서 손절/익절 연산 실시
 
-def get_df(entry_dates,
+def get_option(entry_dates,
                     table : typing.Literal['monthly', 'weekly_thu', 'weekly_mon'],
                     cp : typing.Literal['C', 'P'],
                     type : typing.Literal['strike', 'moneyness', 'delta', 'pct'],
                     select_value : int | float,
                     term : typing.Literal[1, 2, 3, 4, 5],
-                    dte : list = [1, 999]): # dte = 0으로 두면 만기날 종가에 포지션 들어가는것처럼 되면서 익/손 0짜리 dummy 포지션 생성
+                    dte : list = [1, 999],
+                    *args, # 주문수량 등등 받기 위한 역할 없는 dummy arguments
+                    **kwargs
+                    ) : # dte = 0으로 두면 만기날 종가에 포지션 들어가는것처럼 되면서 익/손 0짜리 dummy 포지션 생성
     
     ''' 
     TERM : 상장된 종목중 가장 최근월물 순으로 1, 2, 3, 4, 5
@@ -442,134 +444,282 @@ def get_df(entry_dates,
 
     return df
 
-# 멀티leg 고려사항
-# 1) 진입일이 같고 exit 도 한번에 하는 경우
-# 2) 진입 lagging / 청산은 한번에
-# 3) 진입 같이 / 청산을 leg별로 따로
-# 4) 진입도 lagging 따로따로 / 청산도 따로따로 -> 그냥 single leg 여러개 합쳐서...
+# 나중에 
 
-def get_backtest(entry_dates,
-                    table : typing.Literal['monthly', 'weekly_thu', 'weekly_mon'],
-                    cp : typing.Literal['C', 'P'],
-                    type : typing.Literal['strike', 'moneyness', 'delta', 'pct'],
-                    select_value : int | float,
-                    term : typing.Literal[1, 2, 3, 4, 5],
-                    dte : list = [1, 999], # dte = 0으로 두면 만기날 종가에 포지션 들어가는것처럼 되면서 익/손 0짜리 dummy 포지션 생성
-                    order = 1,
-                    is_complex_pnl = False,
-                    is_intraday_stop = False,
+# 멀티leg 고려사항
+# ㅁ 진입일이 같고 exit 도 한번에 하는 가장 일반적인 경우
+# index랑 entry_date 으로 join 하면 될 것으로 추정
+# 한가지 고려할게 먼슬리랑 위클리랑 캘린더 할 수도 있음 -> 일단 차이 없어보임
+
+# ㅁ 과거데이터에 데이터 없는 특정 레그 (가령 275 282.5인데 282.5 없는경우)
+# 빼버려야한다고 봄...
+
+
+class backtest:
+
+    def __init__(self, *args : dict):
+
+        ''' dte 는 optional'''
+
+        required_keys = {'entry_dates', 'table', 'cp', 'type', 'select_value', 'term', 'volume'}
+        dict_raw_df = {}
+        dict_order_volume = {}
+
+        start_time = time.time()
+
+        for i, arg in enumerate(args):
+            if not isinstance(arg, dict):
+                raise TypeError(f" {i+1} 번째 변수가 {'entry_dates', 'table', 'cp', 'type', 'select_value', 'term', 'dte', 'volume'} 의 딕셔너리가 아님")
+            if not required_keys.issubset(arg.keys()):
+                raise ValueError(f" {i+1} 번째 변수의 딕셔너리의 키값은 {'entry_dates', 'table', 'cp', 'type', 'select_value', 'term', 'dte', 'volume'}")
+            else:
+                # entry date은 빼는 이유 : entry_date 은 구분자가 될 수 없음. 
+                # 다른 모든 조건이 동일하다면 entry date 에 따른 차이는 
+                # 1) 서로 다른 전략취급하여 백테스팅 따로 하기
+                # 2) 만약 같은 전략이라면 get_entry_exit.get_date_union 함수로 여러 entry_date_arrays 들을 하나의 entry_date 취급
+
+                leg_name = f'{arg['table']}_{arg['cp']}_{arg['type']}_{arg['select_value']}_{arg['term']}_{arg['volume']}'
+        
+                dict_order_volume[leg_name] = arg['volume']
+
+                df = get_option(**arg)
+                dict_raw_df[leg_name] = df
+
+        self_order_volume = dict_order_volume
+        self.raw_df = dict_raw_df # 1. 각 leg 의 로데이터 모아놓은 dictionary
+
+        def join_legs_on_entry_date(raw_df): # 멀티leg 들 죄다 date/entry_date 두개 기준으로 join 해놓는 모듈러 함수
+
+            concat_df = None
+            for key in raw_df.keys():
+                df = raw_df[key].copy()
+                volume = self_order_volume[key]
+
+                # 1. 각종 작업
+                
+                df['value'] = df['adj_price'] * volume
+                df['delta'] = df['delta'] * volume
+                df['gamma'] = df['gamma'] * volume
+                df['theta'] = df['theta'] * volume
+                df['vega'] = df['vega'] * volume
+
+                df.index = pd.to_datetime(df.index)
+                df[['exp_date', 'entry_date']] = df[['exp_date', 'entry_date']].apply(pd.to_datetime, format = '%Y-%m-%d')
+
+                df = df.set_index([df.index, 'entry_date']) # 인덱스를 (date, entry_date) 으로 멀티인덱스화]
+                multicol = pd.MultiIndex.from_product([[key], df.columns]) # 컬럼도 leg별 분류를 위해서 멀티컬럼화
+                df.columns = multicol
+
+                if concat_df is None:
+                    concat_df = df
+                    
+                else:
+                    concat_df = pd.merge(concat_df, df, 
+                                         how = 'inner', 
+                                         # 'outer' : concat_df / df 에서 없는 로우(= 해당시점에 존재하지 않던 행사가) 도 빈칸으로 들어감
+                                         # 'inner' : 해당시점에 df 들중에 행사가 존재하지 않는 leg 있으면 그 기간은 전부 날려버림
+                                         left_index = True,
+                                         right_index = True
+                                         )
+                
+            return concat_df
+        
+        self.concat_df = join_legs_on_entry_date(self.raw_df)
+
+        aux_data = get_timeseries("C:/Users/kwan/Desktop/commonDB/db_timeseries.db", 'k200', 'vkospi')
+        self.k200 = aux_data['k200']
+        self.vkospi = aux_data['vkospi']
+
+        end_time = time.time()
+
+        print(f"importing data : {end_time - start_time} seconds")
+
+        # 각 leg 들을 날짜랑 / entry_date 두개 기준으로 outer join
+        # date 는 어떤 종목 언제 들어가도 다 동일한 가운데,
+        # leg 들의 entry 가 서로 같다면, inner join 이나 outer join 이나 결과 같음 > entry가 같은 조건은 여기서 데이터 합산 완료
+        # leg 들의 entry 가 서로 다른 경우, 일단 outer join 으로 df_concat 에 전부 포함시켜 놓고 나중에 따로 처리
+
+    def equal_inout(self,
                     stop_dates = [],
                     dte_stop = 0,
                     profit = 0,
                     loss = 0,
+                    is_complex_pnl = False,
+                    is_intraday_stop = False,
                     start_date = None,
-                    end_dates = datetime.datetime.today().strftime("%Y-%m-%d")
+                    end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
+                    show_chart = False
                     ):
 
-    # 1. 데이터의 시작날짜 slicing
-    sd = {
-        'monthly' : '2008-01-01',
-        'weekly_thu' : '2019-09-23',
-        'weekly_mon' : '2023-07-31'
-        }
-    
-    if start_date is None:
-        start_date = sd[table]
+        start_time = time.time()
 
-    entry_dates = entry_dates[(entry_dates >= start_date) & (entry_dates <= end_dates)]
-    df = get_df(entry_dates, table, cp, type, select_value, term, dte)
-    date_range = get_findata(findata_path, 'k200')['k200'].index
-    date_range = date_range[(date_range >= start_date) & (date_range <= end_dates)]
+        # 1. 추출된 데이터들 전부 시간형으로 변경        
+        # start_date / end_date 만들어놓은 이유 : 나중에 가격데이터 일부만 빼서 train / test set 나눌려고
+        df = self.concat_df.copy()
 
-    # 2. 추출된 데이터들 전부 시간형으로 변경
-    df.index = pd.to_datetime(df.index)
-    date_range = pd.to_datetime(date_range)
-    df[['exp_date', 'entry_date']] = df[['exp_date', 'entry_date']].apply(pd.to_datetime, format = 'mixed')
-    stop_dates = pd.to_datetime(stop_dates)
+        start_date = pd.to_datetime(start_date)
+        end_date = pd.to_datetime(end_date)
+        stop_dates = pd.to_datetime(stop_dates)
 
-    # 3. 각 entry ~ 만기까지의 결과 도출
+        if not df.empty:
 
-    grouped = df.groupby('entry_date') # 만기로 grouping 하면 만기중에 두번 이상 서로 다른 trade 있으면 겹침
+            df = df.loc[(slice(start_date, end_date))]
+            df_daterange = df.index.get_level_values(level = 'date')
+            date_range = self.k200.loc[slice(df_daterange[0], df_daterange[-1])].index  # get_option 은 실제 entry_date 에 해당하는 날만 가져오는 반면, 분석은 해당 기간 전체애 대해 하기 위해서 별도의 date_range 정의
 
-    def single_trade_pnl(group):
-        group = group.copy()
-        initial_premium = group['adj_price'].iloc[0] * order
-        group['premium'] = initial_premium
-        group['cum_pnl'] = group['adj_price'] * order - initial_premium
-        group['daily_pnl'] = group['cum_pnl'] - group['cum_pnl'].shift(1).fillna(0)
+        # 2. 한 그룹 (= entry_date) 에 대한 매매결과 도출
+        def process_single_group(group, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop):
 
-        return group
-    
-    # joblib 병렬처리 -> 일단 보류
-    # num_cores = -1
-    # timenow = time.time()
-    # result = joblib.Parallel(n_jobs = num_cores)(joblib.delayed(single_trade_pnl)(group) for entry_date, group in grouped)
-    # print("time taken : ", time.time() - timenow)
+            group = group.copy()
+            
+            #1. 데이터 정리
+            
+            value_sum = group.xs('value', axis=1, level=1).sum(axis=1)
+            group['value_sum'] = value_sum
+            group['daily_pnl'] = value_sum.diff().fillna(0)
+            group['cum_pnl'] = group['daily_pnl'].cumsum()
+            
+            # 만약 캘린더 스프레드인 경우 가장 작은 dte 기준으로 모든 전략의 dte 일치
+            min_dte = group.xs('dte', axis = 1, level = 1).min(axis = 1, skipna = True).cummin() 
+            group['min_dte'] = min_dte.clip(lower = 0) # 혹시 음수가 있을지도 (없어야겠지만) 있는경우 0처리
 
-    # 그냥 apply 순서처리
-    # timenow = time.time()
-    # result = grouped.apply(single_trade_pnl)
-    # print("time taken : ", time.time() - timenow)
+            # 2. 익손절 적용
+            premium = group.loc[:, 'value_sum'].iloc[0]
 
+            if is_complex_pnl: # 복잡한 leg전략이면 profit = 명확한 point 단위
+                profit_threshold = np.abs(profit)
+                loss_threshold = - np.abs(loss)
+            else: # 단순한 leg전략이면 profit = 초기 프리미엄의 X배수만큼 추가 수익 발생시 / 손실 발생시로
+                profit_threshold = np.abs(premium * profit)
+                loss_threshold = - np.abs(premium * loss)
 
-    # 4. 각 entry ~ 중간 stop까지의 결과로 축소
+            def get_earliest_stop_date(group, condition, default_value):  # try_except 가 지저분해서 helper function 정의
+                date_list = group.index.get_level_values('date')
+                date_list = date_list[condition]
+                return date_list[0] if not date_list.empty else default_value
+            
+            # 1. dte 기반 : dte_stop 보다 크거나 같은 dte 중에서 가장 작은 dte (= 가장 최근 날짜)
+            # 이렇게 고친 이유로 dte = 2 다음 휴무등으로 인해 dte = 0 이면 dte 조건은 그냥 pass해버림 => dte= 2에 손절로 변경
+            # 다만 반대로 이래 하면 test 시점에서 아직 만기 남은 종목들이 test 하는 당일 기준으로 전부 dte 손절처리됨 => 그냥 감안
+            date_dte_stop = group.index.get_level_values('date')[group['min_dte'] >= dte_stop].max()
 
-    def apply_stop(group):
-        premium = group['premium'].iloc[0]
+            date_hard_stop = get_earliest_stop_date(group, group.index.get_level_values('date').isin(stop_dates), pd.Timestamp('2099-01-01'))        # 2. hard_stop 기반
+            date_profit_take= get_earliest_stop_date(group, group['cum_pnl'] >= profit_threshold, pd.Timestamp('2099-01-01'))        # 3. profit_stop 기반
+            date_stop_loss = get_earliest_stop_date(group, group['cum_pnl'] <= loss_threshold, pd.Timestamp('2099-01-01'))        # 4. loss_stop 기반
 
-        def get_first_date(df, condition, default_value):  # try_except 가 지저분해서 helper function 정의
-            indices = df.index[condition]
-            return indices[0] if not indices.empty else default_value
+            if is_intraday_stop == True:
 
-        if is_complex_pnl: # 복잡한 leg전략이면 profit = 명확한 point 단위
-            profit_threshold = np.abs(profit * order)
-            loss_threshold = - np.abs(loss * order)
-        else: # 단순한 leg전략이면 profit = 초기 프리미엄의 X배수만큼 추가 수익 발생시 / 손실 발생시로
-            profit_threshold = np.abs(premium * profit)
-            loss_threshold = - np.abs(premium * loss)
+                pass # 장중손절 구현에 대한 추가 코드 작성 필요
 
-        date_dte_stop = get_first_date(group, group['dte'] == dte_stop, pd.Timestamp('2099-01-01'))        # 1. dte 기반
-        date_hard_stop = get_first_date(group, group.index.isin(stop_dates), pd.Timestamp('2099-01-01'))        # 2. hard_stop 기반
-        date_profit_take= get_first_date(group, group['cum_pnl'] >= profit_threshold, pd.Timestamp('2099-01-01'))        # 3. profit_stop 기반
-        date_stop_loss = get_first_date(group, group['cum_pnl'] <= loss_threshold, pd.Timestamp('2099-01-01'))        # 4. loss_stop 기반
+            earliest_stop = min(date_dte_stop, date_hard_stop, date_profit_take, date_stop_loss)
 
-        if is_intraday_stop == True:
+            stop_values = {
+                date_dte_stop : 'dte',
+                date_hard_stop : 'stop',
+                date_profit_take : 'win',
+                date_stop_loss : 'loss'
+            }
 
-            pass # 추가코드작성필요
+            stop_type = stop_values.get(earliest_stop, None)
+            group.loc[:, 'stop'] = np.where(group.index.get_level_values('date') == earliest_stop, stop_type, np.nan)
+            group['stop'] = group['stop'].replace('nan', np.nan) # 이상하게 object 타입인 경우 str 'nan' 을 지멋대로 반환함
+            
+            group = group.loc[: earliest_stop]
 
-        earliest_stop = min(date_dte_stop, date_hard_stop, date_profit_take, date_stop_loss)
-
-        stop_values = {
-            date_dte_stop : 'dte',
-            date_hard_stop : 'stop',
-            date_profit_take : 'win',
-            date_stop_loss : 'loss'
-        }
-
-        stop_type = stop_values.get(earliest_stop, None)
-        group['stop'] = np.where(group.index == earliest_stop, stop_type, np.nan)
-        group['stop'] = group['stop'].replace('nan', np.nan) # 이상하게 object 타입인 경우 'nan' 을 지멋대로 반환함
+            return group
         
-        group = group.loc[: earliest_stop]
+        # 3. 위의 개별 그룹에 대한 계산을 병렬처리 또는 모든 그룹들에 대한 적용하는 함수
+        def process_groups(df, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop):
 
-        return group
-    
-    df_result = grouped.apply(lambda group : group.pipe(single_trade_pnl).pipe(apply_stop))
-    df_result = df_result.reset_index(level = ['entry_date'], drop = True)
-    # df_result['stop'] = df_result['stop']
+            grouped = df.groupby(level = 'entry_date')
+            group_count = len(grouped)
+            data_size = len(df)
 
-    df_pnl = df_result[['daily_pnl']].groupby(df_result.index).sum()
-    df_pnl = df_pnl.reindex(date_range, fill_value = 0)
-    df_pnl['cum_pnl'] = df_pnl['daily_pnl'].cumsum()
-    df_pnl['dd'] = df_pnl['cum_pnl'] - df_pnl['cum_pnl'].cummax()
+            # 데이터가 크지 않으면 직렬처리, 그룹이 너무 많으면 병렬처리
+            if group_count < 200 or data_size < 3000:
+                result = grouped.apply(lambda group : process_single_group(group, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop))
+                result = result.droplevel(level = 0, axis = 0)
 
-    res_dict = {
-        'res' : df_result,
-        'pnl' : df_pnl
-    }
+            else:
+                result = joblib.Parallel(n_jobs=-1)(
+                    joblib.delayed(process_single_group)(
+                        group, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop
+                    ) for _, group in grouped
+                )
+                result = pd.concat(result)
 
-    return res_dict
+            return result
+        
+        df_result = process_groups(df, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop)
+        
+        # V 손익계산에 대한 날짜가 전 영업일이 아니라 해당 옵션이 거래되던 날짜만 포함됨
+        # 예) 2019-01-01 ~ 2024-10-30 까지 모든 날짜에 대해 계산되야하는데, 2019-10-11~14 / 2929-02-04~ / 이런식으로 매매하고있던 구간만 계산
+        # 어디 date_range 정의해서 같아붙이기
 
+        df_pnl = df_result[['daily_pnl']].groupby(level = 'date').sum()
+        df_pnl = df_pnl.reindex(date_range).fillna(0)
+        df_pnl['cum_pnl'] = df_pnl['daily_pnl'].cumsum()
+        df_pnl['dd'] = df_pnl['cum_pnl'] - df_pnl['cum_pnl'].cummax()
+
+        end_time = time.time()
+
+        backtesting_time = end_time - start_time
+
+        # optional : 차트표시
+        start_time = time.time()
+
+        if show_chart:
+            
+            df_k200 = self.k200['close'].reindex(date_range)
+            df_vkospi = self.vkospi['close'].reindex(date_range).ffill() # 이상하게 vkospi 에 k200에 있는 일부 영업일이 없는데, 많지 않아서 그냥 ffill() 처리
+
+            fig, axes = plt.subplots(2, 2)
+           
+            df_pnl['cum_pnl'].plot(ax = axes[0, 0])
+            df_k200.plot(ax = axes[0, 0], secondary_y = True) # 1. 누적손익과 기초지수
+
+            df_pnl['cum_pnl'].plot(ax = axes[0, 1])
+            df_vkospi.plot(ax = axes[0, 1], secondary_y = True, sharex = True) # 2. 누적손익과 변동성
+
+            df_pnl['dd'].plot(ax = axes[1, 0], kind = 'area')
+            df_k200.plot(ax = axes[1, 0], secondary_y = True) # 3. 손실과 기초지수
+
+            df_pnl['dd'].plot(ax = axes[1,1], kind = 'area')
+            df_vkospi.plot(ax = axes[1,1], secondary_y = True) # 4. 손실과 변동성
+
+            plt.show()
+
+        end_time = time.time()
+
+        plotting_time = end_time - start_time
+
+        res_dict = {
+            'df' : df_result,
+            'dfcheck' : df_result.loc[:, (slice(None), ('name', 'adj_price'))].sort_index(axis =1 , level =0),
+            'res' : df_result[['cum_pnl', 'stop']].loc[df_result['stop'].dropna().index].sort_values(['cum_pnl'], ascending = True),
+            'pnl' : df_pnl
+        }
+
+        print(f"backtesting time : {backtesting_time} seconds")
+        print(f"plotting time : {plotting_time} seconds")
+
+        return res_dict
+
+        
+
+    @classmethod
+    def run_equal_inout(cls, *args : dict):
+        res = cls(*args).equal_inout()
+        return res
+
+
+# 2) 진입 lagging / 청산은 한번에 -
+# 그냥 single leg 로 따로따로 결과 낸 다
+
+# 3) 진입 같이 / 청산을 leg별로 따로
+# 그냥 single leg 로 따로따로 결과 낸 다음 entry_date 기준으로 join
+
+# 4) 진입도 lagging 따로따로 / 청산도 따로따로 -> 그냥 아예 서로 다른 전략 취급...
 
 def get_statistics(df_backtest):
 
@@ -584,7 +734,7 @@ def get_statistics(df_backtest):
     alltime_high = pnl['cum_pnl'].max()
     
     # 각 stop 발생 당일만 모은 sub df
-    result = res.dropna(subset = 'stop')
+    result = res['stop'].dropna()
     win = result.loc[result['stop'] == 'win']
     loss = result.loc[result['stop'] == 'loss']
     dte = result.loc[result['stop'] == 'dte']
@@ -634,13 +784,19 @@ def get_statistics(df_backtest):
 # 별개분석으로 진입시점 IV별로 주요 매수전략/매도전략 승률 계산해보기 : pivot
 # 이것도 무작정 1:1 안되는게...  dte 낮아질수록 자연스레 프리미엄 붙으면서 뻥튀기되는게 있어서... 평소의 IV 수준과 손익비교하기 힘듬
 
-#V 12)
-    ## 델타와의 difference / strikie difference 기준으로 하는 애들 중에
-    # 곤란하게도 소숫점 셋째자리까지도 difference 가 일치하는 일부 경우가 포착됨 (2024-09-10 / 델타0.25 / 근월물 풋 진입시 332.5풋은 0.202 / 335풋은 0.298로 차이가 0.48로 동일
-    # 이런 경우 random choice 적용하는 쿼리문 추가할 것 -> 해결, 엔트리조건에 term 으로 분류한 뒤 남은애들 재차 delta_difference 로 row_number 나래비세워서 둘중 아무거나 선택
+# V 12) ## 델타와의 difference / strikie difference 기준으로 하는 애들 중에 곤란하게도 소숫점 셋째자리까지도 difference 가 일치하는 일부 경우가 포착됨 (2024-09-10 / 델타0.25 / 근월물 풋 진입시 332.5풋은 0.202 / 335풋은 0.298로 차이가 0.48로 동일
+# => 쿼리문에 dense_rank() 함수를 difference 작은 순서대로 배열 후 row_number() == 1 처리해서 둘중 하나만 선택되게끔 변경
 
 #V 13) 델타 범위를 너무 좁게 해서 dte 1~2에 주가도 200따리 가있는경우에는 커버가 안됨 (225는 델타 0.1/ 222.5 는 델타 0.43 이런 식)
 # => 임의로 델타범위 목표치 +- 0.3으로 넓혀놨음
+
+#V 14) 멀티leg 캘린더 전략의 경우 dte 기준으로 뭘 쓸지?
+# => 기본적으로 가장 만기 짧은물건 만기에 다같이 청산한다는 가정 하에 dte.min(axis = 1) 처리해서 사용
+
+# 15) 매도전략의 경우 장중 익손절 구현 : 당일 시고저종 비교해서 굳이 종가에 안 나가도 중간에 손절칠수 있었으면 그가격에 손절(익절) 나간셈 치기
+
+# V 16) 멀티leg 전략에서 특정 leg 의 경우 어떤 기간(주로 15년 이전) 행사가 없는상황
+# => 위에 join 함수에서 inner 처리하면 해당 기간 아예 없는 셈 처리
 
 def analyze_iv(df_res):
     iv = df_res.loc[df_res.index == df_res['entry_date']][['iv']]
@@ -654,19 +810,145 @@ def analyze_iv(df_res):
 
     return win, loss, dte
 
+def add_multiple_strat(*args : pd.DataFrame):
+    i = 0
+    for df in args:
+        df_copy = df.copy()
+        if i == 0:
+            i += 1
+            agg_df = df.copy()
+        else:
+            agg_df = agg_df + df_copy
+
+    agg_df['cum_pnl'] = agg_df['daily_pnl'].cumsum()
+    agg_df['dd'] = agg_df['cum_pnl'] - agg_df['cum_pnl'].cummax()
+
+    return agg_df
+    
+
 
 if __name__ == "__main__":
 
-    df_k200 = get_findata(findata_path, "k200")['k200']
+    findata_path = "C:/Users/kwan/Desktop/commonDB/db_timeseries.db"
+    option_path ="C:/Users/kwan/Desktop/commonDB/db_option.db"
+
+
+    df_k200 = get_timeseries(findata_path, "k200")['k200']
     entry_dates = df_k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
-    entry_dates2 = df_k200.weekday(0)
-    entry_dates3 = df_k200.rsi.rebound(pos = 'l')
 
-    raw_buycall = get_df(entry_dates2, 'monthly', 'C', 'delta', 0.25, 1)
-    raw_buycall2 = get_df(entry_dates2, 'monthly', 'C', 'delta', 0.20, 1)
+# # weekly_callratio
 
-    buycall = get_backtest(entry_dates, 'weekly_thu' , 'C', 'delta', 0.25, 1, order = 1, profit = 2, loss = -0.5)
-    sellput = get_backtest(entry_dates2, 'monthly', 'P', 'delta', -0.25, 1, order = -1, profit = 0.25, loss = -2)
-    sellcall = get_backtest(entry_dates2, 'monthly', 'C', 'delta', 0.25, 1, order = -1, profit = 0.25, loss = -2)
+#     var = dict(
+#     stop_dates = [],
+#     dte_stop = 1,
+#     profit = 0.5,
+#     loss = -2,
+#     is_complex_pnl = True,
+#     is_intraday_stop = False,
+#     start_date = '20100101',
+#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
+#     show_chart = True
+#     )
 
-    b = analyze_iv(sellput['res'])
+#     entry_dates2 = df_k200.weekday(3)
+#     entry_dates3 = df_k200.weekday(0)
+
+#     dict_call1 = {'entry_dates' : entry_dates2, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.2, 'term' : 1, 'volume' : 1}
+#     dict_call2 = {'entry_dates' : entry_dates2, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.1, 'term' : 1, 'volume' : -2}
+    
+#     dict_call4 = {'entry_dates' : entry_dates3, 'table' : 'weekly_mon', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.2, 'term' : 1, 'volume' : 1}
+#     dict_call5 = {'entry_dates' : entry_dates3, 'table' : 'weekly_mon', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.1, 'term' : 1, 'volume' : -2}
+    
+#     callratio1 = backtest(dict_call1, dict_call2).equal_inout(**var)
+#     callratio2 = backtest(dict_call4, dict_call5).equal_inout(**var)
+
+
+# # weekly_strangle
+#     var = dict(
+#     stop_dates = [],
+#     dte_stop = 1,
+#     profit = 0.25,
+#     loss = -0.5,
+#     is_complex_pnl = False,
+#     is_intraday_stop = False,
+#     start_date = '20100101',
+#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
+#     show_chart = True
+#     )
+
+#     entry_dates = df_k200.weekday(3)
+
+#     dict_call1 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 5, 'term' : 1, 'volume' : -2}
+#     dict_call2 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : 2}
+#     dict_put1 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 5, 'term' : 1, 'volume' : -2}
+#     dict_put2 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : 2}
+
+#     straddle1 = backtest(dict_call1, dict_put1).equal_inout(**var)
+#     print(straddle1['res']['stop'].value_counts())
+#     condor1 = backtest(dict_call1, dict_call2, dict_put1, dict_put2).equal_inout(**var)
+#     print(condor1['res']['stop'].value_counts())
+
+# weekly_butterfly
+
+    # var = dict(
+    # stop_dates = [],
+    # dte_stop = 0,
+    # profit = 0.75,
+    # loss = -0.75,
+    # is_complex_pnl = True,
+    # is_intraday_stop = False,
+    # start_date = '20100101',
+    # end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
+    # show_chart = True
+    # )
+
+    # entry_dates = df_k200.weekday(4)
+    # entry_dates2 = df_k200.weekday(0)
+
+    # dict_call1 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : 1}
+    # dict_call2 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 10, 'term' : 1, 'volume' : -2}
+    # dict_call3 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 12.5, 'term' : 1, 'volume' : 1}
+    
+    # dict_put1 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : 1}
+    # dict_put2 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 10, 'term' : 1, 'volume' : -2}
+    # dict_put3 = {'entry_dates' : entry_dates, 'table' : 'weekly_thu', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 12.5, 'term' : 1, 'volume' : 1}
+    
+    # callbutterfly = backtest(dict_call1, dict_call2, dict_call3).equal_inout(**var)
+    # putbutterfly = backtest(dict_put1, dict_put2, dict_put3).equal_inout(**var)
+
+
+# monthly_butterfly -> 이거 되는거 같음 profit 1pt로 콜풋 따로 운용
+
+    var = dict(
+    stop_dates = [],
+    dte_stop = 0,
+    profit = 1,
+    loss = -999,
+    is_complex_pnl = True,
+    is_intraday_stop = False,
+    start_date = '20120101',
+    end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
+    show_chart = True
+    )
+
+    entry_dates = df_k200.weekday(2)
+
+    dict_call1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 15, 'term' : 2, 'volume' : 1}
+    dict_call2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 22.5, 'term' : 2, 'volume' : -2}
+    dict_call3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 30, 'term' : 2, 'volume' : 1}
+    # dict_call1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.15, 'term' : 2, 'volume' : 1}
+    # dict_call2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.08, 'term' : 2, 'volume' : -2}
+    # dict_call3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.05, 'term' : 2, 'volume' : 1}
+    
+    dict_put1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 15, 'term' : 2, 'volume' : 1}
+    dict_put2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 22.5, 'term' : 2, 'volume' : -2}
+    dict_put3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 30, 'term' : 2, 'volume' : 1}
+    # dict_put1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.15, 'term' : 2, 'volume' : 1}
+    # dict_put2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.08, 'term' : 2, 'volume' : -2}
+    # dict_put3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.05, 'term' : 2, 'volume' : 1}
+    
+    callbutterfly = backtest(dict_call1, dict_call2, dict_call3).equal_inout(**var)
+    putbutterfly = backtest(dict_put1, dict_put2, dict_put3).equal_inout(**var)
+
+    aggret = add_multiple_strat(callbutterfly['pnl'], putbutterfly['pnl'])
+    aggret.plot()
