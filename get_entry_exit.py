@@ -14,25 +14,25 @@ import pandas_ta as ta
 
 def get_date_intersect(*args): # df_1과 df_2가 동시에 적용디는 날짜만 분리
 
-    dummy = pd.DataFrame()
+    res = pd.DatetimeIndex([])
     i = 0
     for entry_date in args:
         if i == 0:
-            dummy = entry_date
-        dummy = dummy.multiply(i)
-
-    res = dummy.loc[dummy['signal'] == 1].index
+            res = entry_date
+            i += 1
+        res = res.intersection(entry_date)
     return res
 
-def get_date_union(option_df, *args): # df_1 또는 df_2 둘중 어느 날이나 포함
-    ''' option_df : 사용하려는 옵션가격 시계열 있는 raw dataframe'''
-    dummy = pd.DataFrame(index = option_df.index.unique(), columns = ['signal'])
-    for i in args:
-        dummy = dummy.combine_first(i.loc[dummy.index])
-
-    res = dummy.loc[dummy['signal'] == 1].index
-
-    return res  
+def get_date_union(*args): # df_1 또는 df_2 둘중 어느 날이나 포함
+    res = pd.DatetimeIndex([])
+    i = 0
+    for entry_date in args:
+        if i == 0:
+            res = entry_date
+            i += 1
+        res = res.union(entry_date)
+    return res
+  
 
 #  df_1 날짜중에 df_2 날짜는 빼고 나머지에 진입 : 별도 함수 대신 get_date_intersect(df_1, flip(df_2)) 로  df_1과 df_2 의 여집합
 

@@ -5,7 +5,7 @@ import numpy as np
 import option_calc as calc
 import compute
 from datetime import datetime
-import backtest
+import LEGACY.backtest as backtest
 
 df_monthly = pd.read_pickle("./working_data/df_monthly.pkl")
 df_weekly = pd.read_pickle("./working_data/df_weekly.pkl")

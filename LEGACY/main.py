@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import compute as compute
 import vol_forecast as myvf
-import backtest as bt
+import LEGACY.backtest as bt
 import os
 
 local_user = 'kanld'

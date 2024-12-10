@@ -3,24 +3,6 @@ import pandas as pd
 import numpy as np
 import datetime
 
-#%% 한번 돌리고 말 코드
-path_option = "./option_exp.xlsx"
-db_option = "./option.db"
-
-conn = sqlite3.connect(db_option)
-cur = conn.cursor()
-
-sheet_names = pd.ExcelFile(path_option).sheet_names
-
-for name in sheet_names:    
-    df = pd.read_excel(path_option, name, index_col = 0)
-    df.index = df.index.astype(str)
-    df['exp_date'] = df['exp_date'].apply(datetime.datetime.strftime, format = "%Y-%m-%d")
-    df.to_sql(name, conn, if_exists = "replace")
-
-conn.close()
-
-
 #%% 
 # path_categorical = "./data_categorical.xlsx"
 
@@ -41,7 +23,7 @@ conn.close()
     
 
 path_timeseries = "./data_timeseries.xlsx"
-db_timeseries = "./db_timeseries.db"
+db_timeseries = "C:/Users/kwan/Desktop/commonDB/db_timeseries.db"
 
 conn = sqlite3.connect(db_timeseries)
 cur = conn.cursor()
