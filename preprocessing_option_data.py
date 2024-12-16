@@ -40,7 +40,7 @@ def process_raw_data(data, table_name):
     data = data.merge(k200, how = 'left', left_index = True, right_index = True)
         
     vkospi = pd.read_sql("SELECT date, close FROM vkospi", conn, index_col = 'date')    
-    vkospi.columns = vkospi.columns.str.cat(["_iv"] * len(vkospi.columns))
+    vkospi.columns = vkospi.columns.str.cat(["_vkospi"] * len(vkospi.columns))
     data = data.merge(vkospi, how = 'left', left_index = True, right_index = True)
 
     base_rate = pd.read_sql("SELECT date, base_rate FROM rate_korea", conn, index_col = 'date') 
@@ -80,10 +80,10 @@ def process_raw_data(data, table_name):
 
         if row['cp'] == 'C':
 
-            # 만기당일 에러 안나는 계산을 위해 dte =0 이면 dte ~0값으로 바꾸기
+            # 만기당일 에러 안나는 계산을 위해 dte = 0 이면 dte ~ 0.0001 같은 0 수렴값으로 바꾸기
 
             if row['dte'] == 0:
-                t = 0.0001            
+                t = 0.00001            
                 price = np.maximum(row['close_k200'] - row['strike'], 0)        # dte ==0 이면 가격은 내재가치로 바꾸기
             
             else:
@@ -99,7 +99,7 @@ def process_raw_data(data, table_name):
             # 만기당일 에러 안나는 계산을 위해 dte =0 이면 dte ~0값으로 바꾸기
 
             if row['dte'] == 0:
-                t = 0.0001            
+                t = 0.00001            
                 price = np.maximum(row['strike'] - row['close_k200'], 0)        # dte ==0 이면 가격은 내재가치로 바꾸기
             
             else:
@@ -115,14 +115,5 @@ def process_raw_data(data, table_name):
         return res
     
     data[['adj_price', 'delta', 'gamma', 'theta', 'vega']] = data.apply(calculate_additional_info, axis = 1)
-
-    # df['adj_price'].mask(df['close'].isna(), df['close']) 
-    # "만약 1건이라도 거래가 있으면 adj_price 에 거래가격을 쓴다" 인데, 내가격 / 차월물로 갈수록 오히려 주어진 변동성에서 추출해서 재계산한 값이 더 맞는것 같아서 안 씀
-
-    # 7. SQL 저장목적으로 datetime -> 다시 str 으로 날짜변환
-    # data.index = data.index.strftime('%Y-%m-%d') 도 되야하는데 이상하게 에러남...
-    # data.index = pd.to_datetime(data.index)
-    # data.index = data.index.map(lambda x : x.strftime("%Y-%m-%d"))
-    # data['exp_date'] = data['exp_date'].dt.strftime('%Y-%m-%d')
 
     return data

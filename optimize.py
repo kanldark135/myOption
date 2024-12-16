@@ -5,16 +5,16 @@ import datetime
 import time
 import joblib
 import matplotlib.pyplot as plt
-import backtest_new as bt
+import backtest as bt
 import pathlib
 import bayes_opt 
 
 db_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_timeseries.db")
-option_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_option2.db")
+option_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_option.db")
 
 df_k200 = bt.get_timeseries(db_path, "k200")['k200']
-
 entry_dates = df_k200.weekday(0)
+table = 'monthly'
 
 call1 = {'entry_dates' : entry_dates, 'table' : 'weekly_mon', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : -1}
 put1 = {'entry_dates' : entry_dates, 'table' : 'weekly_mon', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : -1}
