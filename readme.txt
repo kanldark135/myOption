@@ -8,6 +8,9 @@
     - riskfolio : 위험지표 및 포트폴리오 최적화
        * option specific libraries : optionlab
     - cvxpy : convex optimization tool. scipy.optimize 보다 편함
+    - connectorx : SQL 에서 query 말고 fetching 해올때 속도 증가
+    - polars : pandas 대용으로 vector 연산시 무지하게 빠름
+    - joblib : 병렬처리 라이브러리중 하나
 
 ㅇ 추가 아이디어 -> 테스트 필요
 
