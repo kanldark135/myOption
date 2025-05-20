@@ -1,16 +1,19 @@
-ㅇlibraries
+ㅇlibraries and softwares
 
     - conda included libraries
-    - openbb
+    - openbb : ?? 
     - pandas_ta : dataframe 이 ohlc 꼴로만 되있으면 알아서 해줌
     - TA-Lib -> pandas_ta 가 일정부분 wrapping 하는 목적으로 같이 설치 / 직접 쓰기 불편함
+    - yfinance : 간편하게 야후파이낸스\
     - FinanceDataReader : 국내지수, 환율 등 간편하게 load
     - riskfolio : 위험지표 및 포트폴리오 최적화
-       * option specific libraries : optionlab
+       * option specific libraries : optionlab??
     - cvxpy : convex optimization tool. scipy.optimize 보다 편함
     - connectorx : SQL 에서 query 말고 fetching 해올때 속도 증가
     - polars : pandas 대용으로 vector 연산시 무지하게 빠름
     - joblib : 병렬처리 라이브러리중 하나
+    - optuna : 파라메터 optimization
+    - duckdb + dbeaver : 대용량 기업용은 아니고 로컬에서 가볍게 쓰기 좋은 존나빠른 db. sqlite 대비 쿼리속도 무지막지 빠름
 
 ㅇ 추가 아이디어 -> 테스트 필요
 

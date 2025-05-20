@@ -1,10 +1,13 @@
 #%% 유틸리티 함수
 
-import FinanceDataReader as fdr
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import pandas_ta as ta
+import duckdb
+import pathlib
+import backtest as bt
+import typing
 
 # k200 = pd.read_pickle('./working_data/df_k200.pkl')
 # vkospi = pd.read_pickle('./working_data/df_vkospi.pkl')
@@ -416,7 +419,7 @@ class supertrend_signal:
 
         return res
     
-@ pd.api.extensions.register_dataframe_accessor('ma')
+@pd.api.extensions.register_dataframe_accessor('ma')
 class ma_signal:
     def __init__(self, df : [pd.Series, pd.DataFrame]):
         self.df = df.sort_index(ascending = True)
@@ -455,7 +458,7 @@ class ma_signal:
 # 3. 매매 안 하는 상황
 # data source 바꿔야 함 >> pkl 파일에서 query문 등으로
 
-class notrade:
+class iv:
 
     def vix_curve_invert(notrade_criteria = 0, sma_days = 20):
 
@@ -475,79 +478,149 @@ class notrade:
         res = res.dropna().index
 
         return res
-
-    def vkospi_below_n(quantile = 0.2, low_or_close = 'close'):
-
-        df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
-        res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
-        res['signal'] = 1
-        if low_or_close == 'low':
-            limit = df_vkospi['low'].quantile(quantile)
-        else:
-            limit = df_vkospi['close'].quantile(quantile)
-        res.loc[(df_vkospi[low_or_close] < limit), 'signal'] = np.nan
-
-        res = res.dropna().index
-
-        return res
     
-    def vkospi_above_n(quantile = 0.8, high_or_close = 'close'):
+    def iv_filter(cp : typing.Literal['C', 'P', 'B'], table, term, quantile, upperlower, 
+                  path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")
+                    ):
 
-        df_vkospi = pd.read_pickle("./working_data/df_vkospi.pkl")
-        res = pd.DataFrame(index = df_vkospi.index, columns = ['signal'])
-        res['signal'] = 1
-        if high_or_close == 'high':
-            limit = df_vkospi['high'].quantile(quantile)
+        ''' dte가 동일한 날짜들만 모아서 quantile filtering 후 다시 한꺼번에 모으기. 와중에 예외케이스 dte는 (최소 dte 10일 이상) 그냥 배제
+        cp = 'c' / 'p' / 'b' (콜풋 양쪽 IV 산술평균 사용)''' 
+
+        if cp in ['C', 'P']:
+            df_pivot = bt.get_pivot(cp, 'iv', table, term, path)
+
+        elif cp == 'B':
+            df_call = bt.get_pivot('C', 'iv', table, term, path)
+            df_put = bt.get_pivot('P', 'iv', table, term, path)
+            df_pivot = (df_call + df_put) / 2
+
+        if table in ['weekly_mon', 'weekly_thu']:
+            col = [0, 2.5, 5, 7.5, 10]
         else:
-            limit = df_vkospi['close'].quantile(quantile)
-        res.loc[(df_vkospi[high_or_close] > limit), 'signal'] = np.nan
+            col = [0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20]
 
-        res = res.dropna().index
-
-        return res
-    
-# 저가매수 전략 : 직전 고점 대비 (전고점 말고)
-def change_recent(df, change : float, ohlc = 'close'):
-
-    # 추가 보완 (or 안해도 될...) : 저가는 전고점 / 현재 low랑 비교, 고가는 전저점 / 현재 high 랑 비교
-    # but 일봉데이터가지고는, 현재 가격이 당일 저점인지 고점인지 어짜피 모르므로 (백테스팅도 안 됨) 종가-종가 비교가 현실적이라는 판단
-    # 만약 정말 전고점대비 현재가격이 어느정도 저점 혹은 고점인지 좀더 granular 하게 보려면 30분봉 같은걸로 해야 함
-
-    res = pd.DataFrame(index = df.index, columns = ['signal'])
-
-    if ohlc in ['close', 'open', 'high', 'low']:
-        df = df[ohlc]
-    else:
-        raise IndexError("ohlc must be close / open / high / low")
-
-    if change <= 0: # 전고점대비 change 만큼 낮으면 long signal
+        iv_index = df_pivot[col].mean(axis = 1)
         
-        higher_than_yesterday = df >= df.shift(1)
-        df_higher = df.where(higher_than_yesterday).fillna(method = 'ffill')
+    # 1. 안 쓰는 예외날짜들 배제해버리기 위한 1차 그룹핑
+        group = iv_index.groupby('dte', axis = 0)
+        relevant_dtes = group.count().loc[group.count() > 10].index
+        iv_index = iv_index.iloc[iv_index.index.get_locs([slice(None), relevant_dtes])]
+    
+    # 2. 다시 그룹핑
+        condition = iv_index.groupby('dte', axis = 0).transform(lambda x : x.quantile(quantile))
 
-        df = pd.concat([df, df_higher], axis = 1, join = 'inner')
-        df.columns = [ohlc, f"{ohlc}_high"]
-        df['chg'] = df[ohlc] / df[f"{ohlc}_high"] - 1
+        if upperlower == "upper":
+            df = iv_index[iv_index > condition]
+        else:
+            df= iv_index[iv_index < condition]
 
-        res = res.mask(df['chg'] <= change, 1)
+        res = df.index.get_level_values(0).sort_values()
 
-    if change > 0: # 전저점대비 change 만큼 높으면 short signal
+        return res
+    
+    def skew_filter(table, term, quantile, upperlower, 
+                    path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")
+                    ):
+
+        skew_index = bt.get_skew('iv', table, term, is_index = True, path = path)
+        
+    # 1. 안 쓰는 예외날짜들 배제해버리기 위한 1차 그룹핑
+        group = skew_index.groupby('dte', axis = 0)
+        relevant_dtes = group.count().loc[group.count() > 10].index
+        skew_index = skew_index.iloc[skew_index.index.get_locs([slice(None), relevant_dtes])]
+    
+    # 2. 다시 그룹핑
+        condition = skew_index.groupby('dte', axis = 0).transform(lambda x : x.quantile(quantile))
+
+        if upperlower == "upper":
+            df = skew_index[skew_index > condition]
+        else:
+            df= skew_index[skew_index < condition]
+
+        res = df.index.get_level_values(0).sort_values()
+
+
+        return res
+    
+    def calendar_filter(cp, ref_table, term_1, sub_table, term_2, quantile, upperlower, 
+                        path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")
+                        ):
+        
+        if cp in ['C', 'P']:
+            calendar_index = bt.get_calendar(cp, "iv", ref_table, term_1, sub_table, term_2, is_index = True, path = path)
+
+        elif cp == 'B':
+            call_calendar = bt.get_calendar('C', "iv", ref_table, term_1, sub_table, term_2, is_index = True, path = path)
+            put_calendar = bt.get_calendar('P', "iv", ref_table, term_1, sub_table, term_2, is_index = True, path = path)
+            calendar_index = (call_calendar + put_calendar) / 2
+
+    # 1. 안 쓰는 예외날짜들 배제해버리기 위한 1차 그룹핑
+        group = calendar_index.groupby('dte', axis = 0)
+        relevant_dtes = group.count().loc[group.count() > 10].index
+        calendar_index = calendar_index.iloc[calendar_index.index.get_locs([slice(None), relevant_dtes])]
+    
+    # 2. 계산
+        q1 = calendar_index.groupby('dte', axis = 0).transform(lambda x : x.quantile(quantile))
+
+        if upperlower == "upper":
+            df = calendar_index[calendar_index > q1]
+        else:
+            df= calendar_index[calendar_index < q1]
+
+        res = df.index.get_level_values(0)
+
+        return res
+                
+        
+@pd.api.extensions.register_dataframe_accessor('priceaction')
+class price_action:
+
+    def __init__(self, df):
+        self.df = df
+    
+    # 저가매수 전략 : 직전 고점 대비 (전고점 말고)
+    def change_recent(self, change : float, ohlc = 'close'):
+
+        # 추가 보완 (or 안해도 될...) : 저가는 전고점 / 현재 low랑 비교, 고가는 전저점 / 현재 high 랑 비교
+        # but 일봉데이터가지고는, 현재 가격이 당일 저점인지 고점인지 어짜피 모르므로 (백테스팅도 안 됨) 종가-종가 비교가 현실적이라는 판단
+        # 만약 정말 전고점대비 현재가격이 어느정도 저점 혹은 고점인지 좀더 granular 하게 보려면 30분봉 같은걸로 해야 함
+
+        res = pd.DataFrame(index = self.df.index, columns = ['signal'])
+
+        if ohlc in ['close', 'open', 'high', 'low']:
+            df = self.df[ohlc]
+        else:
+            raise IndexError("ohlc must be close / open / high / low")
+
+        if change <= 0: # 전고점대비 change 만큼 낮으면 long signal
             
-        lower_than_yesterday = df < df.shift(1)
-        df_lower = df.where(lower_than_yesterday).fillna(method = 'ffill')
+            higher_than_yesterday = df >= df.shift(1)
+            df_higher = df.where(higher_than_yesterday).fillna(method = 'ffill')
 
-        df = pd.concat([df, df_lower], axis = 1, join = 'inner')
-        df.columns = [ohlc, f"{ohlc}_lower"]
-        df['chg'] = df[ohlc] / df[f"{ohlc}_lower"] - 1
+            df = pd.concat([df, df_higher], axis = 1, join = 'inner')
+            df.columns = [ohlc, f"{ohlc}_high"]
+            df['chg'] = df[ohlc] / df[f"{ohlc}_high"] - 1
 
-        res = res.mask(df['chg'] > change, -1)
+            res = res.mask(df['chg'] <= change, 1)
 
-    res = res.dropna().index
+        if change > 0: # 전저점대비 change 만큼 높으면 short signal
+                
+            lower_than_yesterday = df < df.shift(1)
+            df_lower = df.where(lower_than_yesterday).fillna(method = 'ffill')
 
-    return res
+            df = pd.concat([df, df_lower], axis = 1, join = 'inner')
+            df.columns = [ohlc, f"{ohlc}_lower"]
+            df['chg'] = df[ohlc] / df[f"{ohlc}_lower"] - 1
+
+            res = res.mask(df['chg'] > change, -1)
+
+        res = res.dropna().index
+
+        return res
+
+
 
 # 3. 돌파매매 시그널
-
 
 
 # 4. 주가 / 지표 다이버전스

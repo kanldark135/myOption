@@ -2,6 +2,7 @@ import pandas as pd
 import sqlite3
 import numpy as np
 import option_calc
+import duckdb
 
 # table_name = 'weekly_thu'
 # conn =sqlite3.connect("C:/Users/kwan/Desktop/option.db")
@@ -21,9 +22,21 @@ def process_raw_data(data, table_name):
     if isinstance(data.index, pd.DatetimeIndex):
         data.index = data.index.date.astype(str) # data의 인덱스 string 으로 변환
 
-    conn = sqlite3.connect("C:/Users/kwan/Desktop/commonDB/db_option.db")
+# sqlite db 
+    # conn = sqlite3.connect("C:/Users/kwan/Desktop/commonDB/db_option.db")
 
-    exp_date = pd.read_sql(f"SELECT * FROM exp_{table_name}", conn, index_col = 'exp')
+    # exp_date = pd.read_sql(f"SELECT * FROM exp_{table_name}", conn, index_col = 'exp')
+    # data = data.merge(exp_date, how = 'inner', left_on = 'exp', right_index = True)
+
+    # data['dte'] = pd.to_datetime(data['exp_date']) - pd.to_datetime(data.index)
+    # data['dte'] = data['dte'].dt.days
+
+    # conn.close()
+    
+# duckdb
+    conn = duckdb.connect("C:/Users/kwan/Desktop/commonDB/option.db")
+
+    exp_date = conn.execute(f"SELECT * FROM exp_{table_name}").fetchdf().set_index('exp')
     data = data.merge(exp_date, how = 'inner', left_on = 'exp', right_index = True)
 
     data['dte'] = pd.to_datetime(data['exp_date']) - pd.to_datetime(data.index)

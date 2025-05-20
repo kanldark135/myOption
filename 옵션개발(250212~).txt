@@ -1,0 +1,25 @@
+개발중인부분
+
+ㅇ 서로 다른 전략 aggregate - > 전략별로 2~5로 가장 최적 전략 찾은 후 aggregate
+-------
+2. 같은 전략 내에서 최적 entry 찾기 -> entry_date 최적화
+3 같은 전략 내에서 익절 / 손실 / exit point  차별화 -> trade_var 최적화
+4. 같은 전략의 수량을 진입시점 laddering -> 기계적 laddering 이 유의미하려면 : 월~금 모든 entry에 걸쳐 손익 유의미한지 test
+5. 같은 전략의 leg 행사가 선택 -> 최적 행사가 조합 찾기
+6. 같은 전략 내에서도 leg 별로 진입시점 차별화 -> 아직...
+
+V(완료) build.optiondb 에서 get_table을 차월물까지 끌어오게 수정 
+>  generate_iterables[1, 2] 이후 작업...
+
+V(완료) get_entry_exit.py -> iv_filter 적용해서 iv 지수에 대한 quantile 별 날짜 필터
+
+ㅇ 비슷한 맥락에서 
+1) slope entry : 콜풋별로 10pt - 등가?
+2) skew 지수로 구해서 skew 된 상황 필터해보기
+3) calendar -> 생각은 해보되 매매가 잘 될지...
+
+ㅇ test.py -> iv_test 에서 exit 시의 결과에 대한 iv 구조 평가 => 혹여 종가 왜곡된 경우라면 손익계산에서 배제
+
+ㅇget_entry_exit.iv_filter 현재에는 콜 아니면 풋만 선택적 -> 'both' 도 넣어서 콜/풋0~10행사가 평균으로 level 만들기
+
+ㅇ아울러 optimize 모듈에서도 양매수/양매도 계열 전략 테스트하는거 다시 만들기

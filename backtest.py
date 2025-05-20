@@ -1,6 +1,8 @@
+#%% 
 import pandas as pd
 import numpy as np
-import sqlite3
+import sqlite3 # 필요없어보임
+import duckdb
 import get_entry_exit
 import datetime
 import time
@@ -167,7 +169,9 @@ def get_option(entry_dates,
                     term : typing.Literal[1, 2, 3, 4, 5],
                     dte : list = [1, 999],
                     iv_range : list = [0, 999],
-                    offset = 0,
+                    offset = None,
+                    term_offset = None,
+                    option_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db"),
                     *args, # 주문수량 등등 받기 위한 역할 없는 dummy arguments
                     **kwargs
                     ) : # dte = 0으로 두면 만기날 종가에 포지션 들어가는것처럼 되면서 익/손 0짜리 dummy 포지션 생성
@@ -187,9 +191,8 @@ def get_option(entry_dates,
     만약 그냥 찐 최근월물만 매매하고 싶으면 그냥 dte = [0, 999] 로 두고 term = 1 하면 됨
     '''
 
-    # 변경 필요
-    option_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_option.db")
-    conn = sqlite3.connect(option_path)
+    catalog_name = option_path.__str__().split("\\").pop().split(".")[0]
+    conn = duckdb.connect(option_path)
 
     #1. 인덱스의 자료형 상관없이 전부 str 형태로 변형
     entry_dates = pd.to_datetime(entry_dates, format = 'mixed').strftime("%Y-%m-%d")
@@ -213,8 +216,14 @@ def get_option(entry_dates,
     if not isinstance(select_value, (int, float)):
         raise ValueError("select_value must be int or float")
     
+    ordinary_dte = {
+        1 : range(1, 35),
+        2 : range(1, 63),
+        3 : range(1, 98)
+    }
+    
     #3.
-    if offset == 0:
+    if offset == None:
         if type == "strike":
             query = f'''
             WITH term_selected_data AS (
@@ -222,10 +231,10 @@ def get_option(entry_dates,
                 FROM
                 (SELECT date, iv, code,
                     DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
-                    FROM {table}
+                    FROM {catalog_name}.main.{table}
                     WHERE date IN ('{formatted_dates}')
                     AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} and {dte[1]}
+                    AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
                     AND {type} = {select_value}
                     )
                 WHERE term = {term}
@@ -236,9 +245,10 @@ def get_option(entry_dates,
                 WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
             )
             SELECT m.*, i.term, i.date as entry_date 
-                FROM {table} m
+                FROM {catalog_name}.main.{table} m
                 INNER JOIN iv_selected_data i ON m.code = i.code
-                WHERE m.date >= i.date;
+                WHERE m.date >= i.date
+                ORDER BY m.date ASC;
             '''
 
         elif type == "moneyness":
@@ -248,10 +258,10 @@ def get_option(entry_dates,
                 FROM
                 (SELECT date, iv, code,
                     DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
-                    FROM {table}
+                    FROM {catalog_name}.main.{table}
                     WHERE date IN ('{formatted_dates}')
                     AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} and {dte[1]}
+                    AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
                     AND {type} = {select_value}
                     )
                 WHERE term = {term}
@@ -262,12 +272,17 @@ def get_option(entry_dates,
                 WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
             )
             SELECT m.*, i.term, i.date as entry_date 
-                FROM {table} m
+                FROM {catalog_name}.main.{table} m
                 INNER JOIN iv_selected_data i ON m.code = i.code
-                WHERE m.date >= i.date;
+                WHERE m.date >= i.date
+                ORDER BY m.date ASC;
             '''
+        # select 하는 델타 범위에 대한 상충되는 두 경우가 있음
+        # 1) 만기가 너무 안 남았거나 / 주가가 저 밑에 있는 경우 : 행사가간 델타 차이가 큼 (0.3타겟인데 0.14 다음 0.42 같은) -> range가 넓어야 매매 나감
+        # 2) (급등락으로 인해) 원하는 델타에 행사가가 없는 경우 : 0.2 타겟인데 급등으로 인해 상장된 가장 외가옵션 델타가 0.37 -> range 를 좁혀놔야 이상한 매매 안 나감
+        # 결론은 2)번으로 -> 1)번 경우 델타 기반 매매 취지에 안 맞음. 그냥 가장 근접한 델타만 골라서 사는건 X / moneyness 나 pct 기반으로 커버
 
-        elif type == "delta": # delta between 0.0 and 0.5; 왜냐면 dte = 1~2 + 주가 저 바닥에 200포인트 아래있을때는 2.5pt 차이로 델타가 매우벌어짐
+        elif type == "delta": 
             query = f'''
             WITH term_selected_data AS (
             SELECT *
@@ -275,11 +290,11 @@ def get_option(entry_dates,
                 (SELECT date, iv, code,
                     ABS(delta - ({select_value})) AS delta_difference,
                     DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
-                    FROM {table}
+                    FROM {catalog_name}.main.{table}
                     WHERE date IN ('{formatted_dates}')
                     AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} AND {dte[1]}
-                    AND {type} BETWEEN {select_value - 0.3} AND {select_value + 0.3}
+                    AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                    AND {type} BETWEEN {select_value - 0.1} AND {select_value + 0.1}
                 )
                 WHERE term = {term}
             ),
@@ -295,9 +310,10 @@ def get_option(entry_dates,
                 WHERE i.equal_deltadiff_cols = 1
             )
             SELECT m.*, d.term, d.date as entry_date
-                FROM {table} m
+                FROM {catalog_name}.main.{table} m
                 INNER JOIN closest_delta_data d ON m.code = d.code
-                WHERE m.date >= d.date;
+                WHERE m.date >= d.date
+                ORDER BY m.date ASC;
             '''
         
         elif type == "pct":
@@ -308,10 +324,10 @@ def get_option(entry_dates,
                 (SELECT date, iv, code,
                     DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term,
                     ABS(strike - close_k200 * {1 + select_value}) AS strike_difference
-                    FROM {table}
+                    FROM {catalog_name}.main.{table}
                     WHERE date IN ('{formatted_dates}')
                     AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} AND {dte[1]}
+                    AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
                     AND strike BETWEEN close_k200 * {1 + select_value} - 1.25 AND close_k200 * {1 + select_value} + 1.25
                 )
             WHERE term = {term}
@@ -328,12 +344,14 @@ def get_option(entry_dates,
                 WHERE i.equal_strikediff_cols = 1
             )
             SELECT m.*, p.term, p.date as entry_date
-                FROM {table} m
+                FROM {catalog_name}.main.{table} m
                 INNER JOIN closest_pct_data p ON m.code = p.code
-                WHERE m.date >= p.date;
+                WHERE m.date >= p.date
+                ORDER BY m.date ASC;
             '''
 
-    else: # offset 있는 경우 실질적으로 point offset밖에 안 쓸거 같아 이것만 적용
+    else: # offset 있는 경우 실질적으로 moneyness/point offset밖에 안 쓸거 같아 이것만 적용함...
+
         if type == "strike":
             query = f'''
             WITH term_selected_data AS (
@@ -341,13 +359,13 @@ def get_option(entry_dates,
                 FROM
                 (SELECT date, iv, code,
                     DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
-                    FROM {table}
+                    FROM {catalog_name}.main.{table}
                     WHERE date IN ('{formatted_dates}')
                     AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} and {dte[1]}
-                    AND {type} = {select_value} + {offset}
+                    AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                    AND {type} = {select_value} + {offset if cp == "C" else -offset}
                     )
-                WHERE term = {term}
+                WHERE term = {term_offset}
             ),
             iv_selected_data AS (
                 SELECT t.*
@@ -355,118 +373,354 @@ def get_option(entry_dates,
                 WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
             )
             SELECT m.*, i.term, i.date as entry_date 
-                FROM {table} m
+                FROM {catalog_name}.main.{table} m
                 INNER JOIN iv_selected_data i ON m.code = i.code
-                WHERE m.date >= i.date;
+                WHERE m.date >= i.date
+                ORDER BY m.date ASC;
             '''
 
         elif type == "moneyness":
-            query = f'''
-            WITH term_selected_data AS (
-            SELECT *
-                FROM
-                (SELECT date, iv, code,
-                    DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
-                    FROM {table}
-                    WHERE date IN ('{formatted_dates}')
-                    AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} and {dte[1]}
-                    AND {type} = {select_value} + {offset}
-                    )
-                WHERE term = {term}
-            ),
-            iv_selected_data AS (
-                SELECT t.*
-                FROM term_selected_data t
-                WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
-            )
-            SELECT m.*, i.term, i.date as entry_date 
-                FROM {table} m
-                INNER JOIN iv_selected_data i ON m.code = i.code
-                WHERE m.date >= i.date;
-            '''
 
-        elif type == "delta": # delta between 0.0 and 0.5; 왜냐면 dte = 1~2 + 주가 저 바닥에 200포인트 아래있을때는 2.5pt 차이로 델타가 매우벌어짐
-            query = f'''
-            WITH term_selected_data AS (
-            SELECT *
-                FROM
-                (SELECT date, cp, exp, strike, iv,
-                    ABS(delta - ({select_value})) AS delta_difference,
-                    DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
-                    FROM {table}
-                    WHERE date IN ('{formatted_dates}')
-                    AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} AND {dte[1]}
-                    AND {type} BETWEEN {select_value - 0.3} AND {select_value + 0.3}
+            if table == 'monthly':
+
+                exp_selection = f"""
+                    STRFTIME(
+                        DATE_ADD(
+                            CAST(SUBSTR(a.exp, 1, 4) || '-' || SUBSTR(a.exp, 5, 2) || '-01' AS DATE),
+                            INTERVAL '{term_offset - term}' MONTH
+                        ), 
+                        '%Y%m'
+                    ) AS new_exp
+                    """
+                query = f'''
+                WITH term_selected_data AS (
+                SELECT *
+                    FROM
+                    (SELECT date, iv, cp, exp, strike, dte,
+                        DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
+                        FROM {catalog_name}.main.{table}
+                        WHERE date IN ('{formatted_dates}')
+                        AND cp = '{cp}'
+                        AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                        AND {type} = {select_value} -- 콜풋 상관없이 moneyness 는 양수일수록 외가
+                        )
+                    WHERE term = {term}
+                ),
+                iv_selected_data AS (
+                    SELECT t.*
+                    FROM term_selected_data t
+                    WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
+                ),
+                new_strike_data AS (
+	                SELECT i.date, i.cp, i.exp, 
+                        (i.strike + {offset if cp == "C" else -offset}) AS new_strike
+	                from iv_selected_data i
+                ),
+                term_offset_data AS (
+                    SELECT m.date, m.cp, m.exp, m.dte, m.strike, {term_offset} as term
+                                    FROM {catalog_name}.main.{table} m
+                                    INNER JOIN (
+                                        SELECT a.date, a.cp,
+                                        {exp_selection},
+                                        a.new_strike
+                                        FROM new_strike_data a
+                                    ) offset_data
+                                    ON m.date = offset_data.date
+                                    AND m.cp = offset_data.cp
+                                    AND m.strike = offset_data.new_strike
+                                    and m.exp = offset_data.new_exp
+                                    where m.dte >= 1
+                                    order by m.date
                 )
-                WHERE term = {term}
-            ),
-            iv_selected_data AS (
-            SELECT t.*,
-                ROW_NUMBER() OVER(PARTITION BY t.date ORDER BY t.delta_difference ASC) AS equal_deltadiff_cols
-                FROM term_selected_data t
-                WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
-            ),
-            closest_delta_data AS (
-            SELECT i.*
-                FROM iv_selected_data i
-                WHERE i.equal_deltadiff_cols = 1
-            ),
-            strike_adjusted_data AS (
-                SELECT d.*, d.strike + {offset} as new_strike
-                FROM closest_delta_data d
-            )
-            SELECT m.*, k.term, k.date as entry_date
-                FROM {table} m
-                INNER JOIN strike_adjusted_data k
-                ON m.cp = k.cp
-                AND m.exp = k.exp
-                AND m.strike = k.new_strike
-                WHERE m.date >= k.date;
-            '''
+                SELECT m.*, k.term, k.date as entry_date
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN term_offset_data k
+                        ON m.cp = k.cp
+                        AND m.exp = k.exp
+                        AND m.strike = k.strike 
+                        WHERE m.date >= k.date
+                        ORDER BY m.date ASC;
+                '''
+
+            elif table in ['weekly_mon', 'weekly_thu']:
+
+                query = f'''
+                WITH term_selected_data AS (
+                SELECT *
+                    FROM
+                    (SELECT date, iv, code,
+                        DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
+                        FROM {catalog_name}.main.{table}
+                        WHERE date IN ('{formatted_dates}')
+                        AND cp = '{cp}'
+                        AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                        AND {type} = {select_value} + {offset} -- 콜풋 상관없이 moneyness 는 양수일수록 외가
+                        )
+                    WHERE term = {term_offset} 
+                ),
+                iv_selected_data AS (
+                    SELECT t.*
+                    FROM term_selected_data t
+                    WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
+                )
+                SELECT m.*, i.term, i.date as entry_date 
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN iv_selected_data i ON m.code = i.code
+                    WHERE m.date >= i.date
+                    ORDER BY m.date ASC;
+                '''
+
+        elif type == "delta":
+
+            if table in ['monthly']:
+                
+                exp_selection = f"""
+                    STRFTIME(
+                        DATE_ADD(
+                            CAST(SUBSTR(a.exp, 1, 4) || '-' || SUBSTR(a.exp, 5, 2) || '-01' AS DATE),
+                            INTERVAL '{term_offset - term}' MONTH
+                        ), 
+                        '%Y%m'
+                    ) AS new_exp
+                    """
+                
+                query = f'''
+                WITH term_selected_data AS (
+                SELECT *
+                    FROM
+                    (SELECT date, cp, exp, strike, iv, dte,
+                        ABS(delta - ({select_value})) AS delta_difference,
+                        DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
+                        FROM {catalog_name}.main.{table}
+                        WHERE date IN ('{formatted_dates}')
+                        AND cp = '{cp}'
+                        AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                        AND {type} BETWEEN {select_value - 0.1} AND {select_value + 0.1}
+                    )
+                    WHERE term = {term}
+                ),
+                iv_selected_data AS (
+                SELECT t.*,
+                    ROW_NUMBER() OVER(PARTITION BY t.date ORDER BY t.delta_difference ASC) AS equal_deltadiff_cols
+                    FROM term_selected_data t
+                    WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
+                ),
+                closest_delta_data AS (
+                SELECT i.*
+                    FROM iv_selected_data i
+                    WHERE i.equal_deltadiff_cols = 1
+                ),
+                new_strike_data AS (
+	                SELECT d.date, d.cp, d.exp, (d.strike + {offset if cp == "C" else -offset}) AS new_strike
+	                from closest_delta_data d
+                ),
+                term_offset_data AS (
+                    SELECT m.date, m.cp, m.exp, m.dte, m.strike, {term_offset} as term
+                                    FROM {catalog_name}.main.{table} m
+                                    INNER JOIN (
+                                        SELECT a.date, a.cp,
+                                        {exp_selection},
+                                        a.new_strike
+                                        FROM new_strike_data a) offset_data
+                                    ON m.date = offset_data.date
+                                    AND m.cp = offset_data.cp
+                                    AND m.strike = offset_data.new_strike
+                                    and m.exp = offset_data.new_exp
+                                    where m.dte >= 1
+                                    order by m.date
+                )
+                SELECT m.*, k.term, k.date as entry_date
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN term_offset_data k
+                        ON m.cp = k.cp
+                        AND m.exp = k.exp
+                        AND m.strike = k.strike 
+                        WHERE m.date >= k.date
+                        ORDER BY m.date ASC;
+                '''
+
+            elif table in ['weekly_thu', 'weekly_mon']:
+
+                query = f'''
+                WITH term_selected_data AS (
+                SELECT *
+                    FROM
+                    (SELECT date, cp, exp, strike, iv,
+                        ABS(delta - ({select_value})) AS delta_difference,
+                        DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term
+                        FROM {catalog_name}.main.{table}
+                        WHERE date IN ('{formatted_dates}')
+                        AND cp = '{cp}'
+                        AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                        AND {type} BETWEEN {select_value - 0.1} AND {select_value + 0.1}
+                    )
+                    WHERE term = {term}
+                ),
+                iv_selected_data AS (
+                SELECT t.*,
+                    ROW_NUMBER() OVER(PARTITION BY t.date ORDER BY t.delta_difference ASC) AS equal_deltadiff_cols
+                    FROM term_selected_data t
+                    WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
+                ),
+                closest_delta_data AS (
+                SELECT i.*
+                    FROM iv_selected_data i
+                    WHERE i.equal_deltadiff_cols = 1
+                ),
+                new_strike_data AS (
+                SELECT m.date, m.cp, m.exp, m.dte, m.strike
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN (SELECT d.date, d.cp, d.strike + {offset if cp == "C" else -offset} AS new_strike FROM closest_delta_data d) a
+                    ON m.date = a.date
+                    AND m.cp = a.cp
+                    AND m.strike = a.new_strike
+                    where m.dte >= {dte[0]} -- dte가 reference 의 dte와 최소값 이상 조건은 동일해야.. 안그럼 dte =0 -> term ->1 로 왜곡되버림
+                ),
+                term_offset_data AS (
+                SELECT *
+                    FROM
+                    (SELECT n.*,
+                        ROW_NUMBER() OVER (PARTITION BY n.date ORDER BY n.dte ASC) AS term
+                        FROM new_strike_data n
+                    )
+                    WHERE term = {term_offset}
+                )
+                SELECT m.*, k.term, k.date as entry_date
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN term_offset_data k
+                    ON m.cp = k.cp
+                    AND m.exp = k.exp
+                    AND m.strike = k.strike
+                    WHERE m.date >= k.date
+                    ORDER BY m.date ASC;
+                '''
         
         elif type == "pct":
-            query = f'''
-            WITH term_selected_data AS (
-            SELECT *
-                FROM
-                (SELECT date, cp, exp, strike,
-                    DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term,
-                    ABS(strike - close_k200 * {1 + select_value}) AS strike_difference
-                    FROM {table}
-                    WHERE date IN ('{formatted_dates}')
-                    AND cp = '{cp}'
-                    AND dte BETWEEN {dte[0]} AND {dte[1]}
-                    AND strike BETWEEN close_k200 * {1 + select_value} - 1.25 AND close_k200 * {1 + select_value} + 1.25
-                )
-                WHERE term = {term}
-            ),
-            iv_selected_data AS (
-            SELECT t.*,
-                ROW_NUMBER() OVER (PARTITION BY t.date ORDER BY t.strike_difference() ASC) AS equal_strikediff_cols
-                FROM term_selected_data t
-                WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
-            ),
-            closest_pct_data AS (
-            SELECT t.*
-                FROM iv_selected_data i
-                WHERE i.equal_strikediff_cols = 1
-            ),
-            strike_adjusted_data AS (
-            SELECT d.*, d.strike + {offset} as new_strike
-                FROM closest_pct_data d
-            )
-            SELECT m.*, k.term, k.date as entry_date
-                FROM {table} m
-                INNER JOIN strike_adjusted_data k
-                ON m.cp = k.cp
-                AND m.exp = k.exp
-                AND m.strike = k.new_strike
-                WHERE m.date >= k.date;
-            '''
 
-    df = pd.read_sql(query, conn, index_col = 'date')
+            if table in ['monthly']:
+                
+                exp_selection = f"""
+                    STRFTIME(
+                        DATE_ADD(
+                            CAST(SUBSTR(a.exp, 1, 4) || '-' || SUBSTR(a.exp, 5, 2) || '-01' AS DATE),
+                            INTERVAL '{term_offset - term}' MONTH
+                        ), 
+                        '%Y%m'
+                    ) AS new_exp
+                    """
+
+                query = f'''
+                WITH term_selected_data AS (
+                SELECT *
+                    FROM
+                    (SELECT date, cp, exp, strike, iv, dte,
+                        DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term,
+                        ABS(strike - close_k200 * {1 + select_value}) AS strike_difference
+                        FROM {catalog_name}.main.{table}
+                        WHERE date IN ('{formatted_dates}')
+                        AND cp = '{cp}'
+                        AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                        AND strike BETWEEN close_k200 * {1 + select_value} - 1.25 AND close_k200 * {1 + select_value} + 1.25
+                    )
+                    WHERE term = {term}
+                ),
+                iv_selected_data AS (
+                SELECT t.*,
+                    ROW_NUMBER() OVER (PARTITION BY t.date ORDER BY t.strike_difference ASC) AS equal_strikediff_cols
+                    FROM term_selected_data t
+                    WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
+                ),
+                closest_pct_data AS (
+                SELECT t.*
+                    FROM iv_selected_data i
+                    WHERE i.equal_strikediff_cols = 1
+                ),
+                new_strike_data AS (
+	                SELECT p.date, p.cp, p.exp, (p.strike + {offset if cp == "C" else -offset}) AS new_strike 
+	                from closest_pct_data p
+                ),
+                term_offset_data AS (
+                    SELECT m.date, m.cp, m.exp, m.dte, m.strike, {term_offset} as term
+                                    FROM {catalog_name}.main.{table} m
+                                    INNER JOIN (
+                                        SELECT a.date, a.cp,
+                                        {exp_selection},
+                                        a.new_strike
+                                        FROM new_strike_data a) offset_data
+                                    ON m.date = offset_data.date
+                                    AND m.cp = offset_data.cp
+                                    AND m.strike = offset_data.new_strike
+                                    and m.exp = offset_data.new_exp
+                                    where m.dte >= 1
+                                    order by m.date
+                )
+                SELECT m.*, k.term, k.date as entry_date
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN term_offset_data k
+                        ON m.cp = k.cp
+                        AND m.exp = k.exp
+                        AND m.strike = k.strike 
+                        WHERE m.date >= k.date
+                        ORDER BY m.date ASC;
+                '''
+
+            elif table in ['weekly_thu', 'weekly_mon']:
+                
+                query = f'''
+                WITH term_selected_data AS (
+                SELECT *
+                    FROM
+                    (SELECT date, cp, exp, strike,
+                        DENSE_RANK() OVER (PARTITION BY date ORDER BY dte ASC) AS term,
+                        ABS(strike - close_k200 * {1 + select_value}) AS strike_difference
+                        FROM {catalog_name}.main.{table}
+                        WHERE date IN ('{formatted_dates}')
+                        AND cp = '{cp}'
+                        AND dte BETWEEN {ordinary_dte[term][0] if dte[0] == 1 else dte[0]} and {ordinary_dte[term][-1] if dte[1] == 999 else dte[1]}
+                        AND strike BETWEEN close_k200 * {1 + select_value} - 1.25 AND close_k200 * {1 + select_value} + 1.25
+                    )
+                    WHERE term = {term}
+                ),
+                iv_selected_data AS (
+                SELECT t.*,
+                    ROW_NUMBER() OVER (PARTITION BY t.date ORDER BY t.strike_difference ASC) AS equal_strikediff_cols
+                    FROM term_selected_data t
+                    WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
+                ),
+                closest_pct_data AS (
+                SELECT t.*
+                    FROM iv_selected_data i
+                    WHERE i.equal_strikediff_cols = 1
+                ),
+                new_strike_data AS (
+                SELECT m.date, m.cp, m.exp, m.dte, m.strike
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN (SELECT d.date, d.cp, d.strike + {offset if cp == "C" else -offset} AS new_strike FROM closest_pct_data d) a
+                    ON m.date = a.date
+                    AND m.cp = a.cp
+                    AND m.strike = a.new_strike
+                    WHERE m.dte >= {dte[0]} 
+                ),
+                term_offset_data AS (
+                SELECT *
+                    FROM
+                    (SELECT n.*,
+                        ROW_NUMBER() OVER (PARTITION BY n.date ORDER BY n.dte ASC) AS term
+                        FROM new_strike_data n
+                    )
+                    WHERE term = {term_offset}
+                )
+                SELECT m.*, k.term, k.date as entry_date
+                    FROM {catalog_name}.main.{table} m
+                    INNER JOIN term_offset_data k
+                    ON m.cp = k.cp
+                    AND m.exp = k.exp
+                    AND m.strike = k.strike
+                    WHERE m.date >= k.date
+                    ORDER BY m.date ASC;
+                '''
+
+    df = conn.execute(query).df().set_index('date')
     conn.close()
 
     return df
@@ -484,18 +738,19 @@ def get_option(entry_dates,
 
 class backtest:
 
-    def __init__(self, *args : dict):
+    def __init__(self, *args : dict, option_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")):
 
         ''' dte 와 iv 는 optional'''
 
         start_time = time.time()
-
+        self.option_path = option_path
         self.required_keys = {'entry_dates', 'table', 'cp', 'type', 'select_value', 'term', 'volume'}
         self.raw_df, self.order_volume = self.fetch_and_process(*args)
         self.concat_df = self.join_legs_on_entry_date(self.raw_df)
         self.aux_data = get_timeseries(pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_timeseries.db"), 'k200', 'vkospi')
         self.k200 = self.aux_data['k200']
         self.vkospi = self.aux_data['vkospi']
+   
 
         end_time = time.time()
         print(f"importing data : {end_time - start_time} seconds")
@@ -510,7 +765,8 @@ class backtest:
             iv_range = arg.get('iv_range', default_params['iv_range'].default)
             dte = arg.get('dte', default_params['dte'].default)
             offset = arg.get('offset', default_params['offset'].default)
-            return f"{arg['table']}_{arg['cp']}_{arg['type']}_{arg['select_value']}_{arg['term']}_{dte}_{iv_range}_{offset}_{arg['volume']}"
+            term_offset = arg.get('term_offset', default_params['term_offset'].default)
+            return f"{arg['table']}_{arg['cp']}_{arg['type']}_{arg['select_value']}_{arg['term']}_{arg['volume']}_{dte}_{iv_range}_{offset}_{term_offset}"
         
         def process_arg(arg, default_params):
 
@@ -518,8 +774,12 @@ class backtest:
                 raise TypeError(f"arg는 최소 'entry_dates', 'table', 'cp', 'type', 'select_value', 'term', 'volume' 를 키값으로 가지는 dict 여야 함")
             if not self.required_keys.issubset(arg.keys()):
                 raise ValueError(f"Missing 최소 required keys : {self.required_keys}")
+            if 'offset' in arg.keys() and 'term_offset' not in arg.keys():
+                raise ValueError('행사가 offset 으로 진행시 반드시 term_offset 지정 필요')
             
             leg_name = generate_leg_name(arg, default_params)
+
+            arg['option_path'] = self.option_path
 
             df = get_option(**arg)
             return leg_name, df, arg['volume']
@@ -557,7 +817,7 @@ class backtest:
                 vega=df['vega'] * volume
             )
             
-            df.index = pd.to_datetime(df.index)
+            df.index = pd.to_datetime(df.index, format = "%Y-%m-%d")
             df[['exp_date', 'entry_date']] = df[['exp_date', 'entry_date']].apply(pd.to_datetime, format = '%Y-%m-%d')
             df = df.set_index([df.index, 'entry_date']) # 인덱스를 (date, entry_date) 으로 멀티인덱스화
             df.columns = pd.MultiIndex.from_product([[key], df.columns]) # 컬럼도 leg별 분류를 위해서 멀티컬럼화
@@ -574,7 +834,7 @@ class backtest:
                                         right_index = True
                                         )
             
-        return concat_df
+        return concat_df.sort_index(level = 'date', ascending = True)
     
         # 각 leg 들을 날짜랑 / entry_date 두개 기준으로 outer join
         # date 는 어떤 종목 언제 들어가도 다 동일한 가운데,
@@ -607,8 +867,15 @@ class backtest:
         if not df.empty:
 
             df = df.loc[(slice(start_date, end_date))]
+            df = df.loc[start_date <= df.index.get_level_values('entry_date')] # 전략 시작일 이전에 entry 되어있는 조건들은 삭제하기 위한 장치
             df_daterange = df.index.get_level_values(level = 'date')
             date_range = self.k200.loc[slice(df_daterange[0], df_daterange[-1])].index  # get_option 은 실제 entry_date 에 해당하는 날만 가져오는 반면, 분석은 해당 기간 전체애 대해 하기 위해서 별도의 date_range 정의
+
+        else:
+            # 비어 있을 경우 기본 date_range 정의
+            date_range = pd.DatetimeIndex([])
+            print("Warning: No trades found. Using an empty date_range.")
+            return  # 함수 종료
 
         # 2. 한 그룹 (= entry_date) 에 대한 매매결과 도출
         def process_single_group(group, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop):
@@ -811,19 +1078,35 @@ class backtest:
 
         plotting_time = end_time - start_time
 
+        df_check = df_result.loc[:,
+                                (df_result.columns.str.endswith("_name"))|
+                                (df_result.columns.str.endswith("_strike"))|
+                                (df_result.columns.str.endswith("_adj_price"))|
+                                (df_result.columns.str.endswith("_iv"))|
+                                (df_result.columns.str.endswith("min_dte"))|
+                                (df_result.columns.str.endswith("value_sum"))|
+                                (df_result.columns.str.endswith("daily_pnl"))|
+                                (df_result.columns.str.endswith("cum_pnl"))|
+                                (df_result.columns.str.contains("whystop"))
+                                ]
+        # k200 종가 추가
+        k200_close = df_result.loc[:, df_result.columns.str.endswith('close_k200')].iloc[:, :1]
+        k200_close.columns = ['k200']
+        df_check = pd.merge(df_check, k200_close, how = 'left', left_index = True, right_index = True)
+
+        df_entry = df_check.loc[df_check.index.get_level_values('date') == df_check.index.get_level_values('entry_date')]
+        df_exit = df_check.loc[df_result['whystop'].notna()]
+
+        df_res = df_result[['cum_pnl', 'stop', 'whystop', 'premium']].loc[df_result['whystop'].dropna().index].sort_values(['cum_pnl'], ascending = True)
+        df_res['days_taken'] = df_res['stop'] - df_res.index.get_level_values('entry_date')
+        df_res['days_taken'] = df_res['days_taken'].dt.days
+
         res_dict = {
             'df' : df_result,
-            'check' : df_result.loc[:,
-                                      (df_result.columns.str.endswith("_name"))|
-                                      (df_result.columns.str.endswith("_adj_price"))|
-                                      (df_result.columns.str.endswith("_iv"))|
-                                      (df_result.columns.str.endswith("min_dte"))|
-                                      (df_result.columns.str.endswith("value_sum"))|
-                                      (df_result.columns.str.endswith("daily_pnl"))|
-                                      (df_result.columns.str.endswith("cum_pnl"))|
-                                      (df_result.columns.str.endswith("earliest_stop"))
-                                      ],
-            'res' : df_result[['cum_pnl', 'stop', 'whystop', 'premium']].loc[df_result['whystop'].dropna().index].sort_values(['cum_pnl'], ascending = True),
+            'check' : df_check,
+            'entry' : df_entry,
+            'exit' : df_exit,
+            'res' : df_res,
             'pnl' : df_pnl
         }
 
@@ -832,18 +1115,13 @@ class backtest:
 
         return res_dict
         
-
-    @classmethod
-    def run_equal_inout(cls, *args : dict):
-        res = cls(*args).equal_inout()
-        return res
-
-
+    
 # 2) 진입 lagging / 청산은 한번에 -
 # lagged butterfly 전략과 같이 특정 leg 기달렸다가 전체 구축하는 경우가 있으므로 별도로 만들 필요 있음
 
 # 3) 진입 같이 / 청산을 leg별로 따로
 # 2번보다 가능성은 낮지만 혹시 single leg 의 청산기준이 전체포지션의 손익구조에 달려있는 전략이 있다면 필요
+# -> 예) 감마스캘핑
 # 그렇지 않으면 다른 전략 취급
 
 # 4) 진입도 lagging 따로따로 / 청산도 따로따로 -> 그냥 아예 서로 다른 전략 취급...
@@ -894,257 +1172,115 @@ def get_statistics(df_backtest):
     total_loss = loss['cum_pnl'].sum()
     avg_loss = loss['cum_pnl'].mean()
     largest_loss = loss['cum_pnl'].min()
- 
-# 11
-
-def analyze_iv(df_res):
-    iv = df_res.loc[df_res.index == df_res['entry_date']][['iv']]
-    other = df_res.loc[df_res['stop'].dropna().index][['entry_date', 'cum_pnl', 'stop']]
-
-    res = pd.merge(iv, other, how = 'left', left_index = True, right_on = 'entry_date')
-
-    win = res.loc[res['stop'] == 'win']
-    loss = res.loc[res['stop'] == 'loss']
-    dte = res.loc[res['stop'] == 'dte']
-
-    return win, loss, dte
-
-def add_multiple_strat(*args : pd.DataFrame):
-    i = 0
-    for df in args:
-        df_copy = df.copy()
-        if i == 0:
-            i += 1
-            agg_df = df.copy()
-        else:
-            agg_df = agg_df + df_copy
-
-    agg_df['cum_pnl'] = agg_df['daily_pnl'].cumsum()
-    agg_df['dd'] = agg_df['cum_pnl'] - agg_df['cum_pnl'].cummax()
-
-    return agg_df
-
-
-if __name__ == "__main__":
-
-    db_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_timeseries.db")
-    option_path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/db_option.db")
-
-
-    df_k200 = get_timeseries(db_path, "k200")['k200']
-    entry_dates = df_k200.stoch.rebound1(pos = 'l', k = 10, d = 5, smooth_d = 5)
-
-#%% weekly_callratio
-
-    var = dict(
-    stop_dates = [],
-    dte_stop = 1,
-    profit = 0.5,
-    loss = -2,
-    is_complex_pnl = True,
-    is_intraday_stop = False,
-    start_date = '20100101',
-    end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
-    show_chart = True,
-    use_polars = True
-    )
-
-    entry_dates2 = df_k200.weekday(3)
-    entry_dates3 = df_k200.weekday(0)
-
-    dict_call1 = {'entry_dates' : entry_dates2, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.2, 'term' : 1, 'volume' : 1}
-    dict_call2 = {'entry_dates' : entry_dates2, 'table' : 'weekly_thu', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.2, 'term' : 1, 'volume' : -2, 'offset' : 2.5}
-    callratio1 = backtest(dict_call1, dict_call2).equal_inout(**var)
- 
-    # dict_call4 = {'entry_dates' : entry_dates3, 'table' : 'weekly_mon', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.2, 'term' : 1, 'volume' : 1}
-    # dict_call5 = {'entry_dates' : entry_dates3, 'table' : 'weekly_mon', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.1, 'term' : 1, 'volume' : -2}
-    # callratio2 = backtest(dict_call4, dict_call5).equal_inout(**var)
-
-
-    aggret = callratio1['pnl']
-    aggret = aggret.join(df_k200['close'], how = 'left')
-    fig, ax = plt.subplots()
-    aggret.iloc[:, 0:3].plot(ax = ax)
-    aggret['close'].plot(ax = ax, secondary_y= True)
-
-# #%% weekly put backspread
-#     var = dict(
-#     stop_dates = [],
-#     dte_stop = 1,
-#     profit = 0.25,
-#     loss = -0.5,
-#     is_complex_pnl = True,
-#     is_intraday_stop = False,
-#     start_date = '20100101',
-#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
-#     show_chart = True
-#     )
-
-#     entry_date = df_k200.weekday(0)
-#     table = 'weekly_mon'
-#     iv_range = [0, 16]
     
-#     dict_put1 = {'entry_dates' : entry_date, 'table' : table, 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.3, 'term' : 1, 'volume' : 1, 'iv_range' : iv_range}
-#     dict_put2 = {'entry_dates' : entry_date, 'table' : table, 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.15, 'term' : 1, 'volume' : -2, 'iv_range' : iv_range}
-    
-#     putbs = backtest(dict_put1, dict_put2).equal_inout(**var)
+    return None
 
-#     aggret = putbs['pnl']
-#     aggret = aggret.join(df_k200['close'], how = 'left')
-#     fig, ax = plt.subplots()
-#     aggret.iloc[:, 0:3].plot(ax = ax)
-#     aggret['close'].plot(ax = ax, secondary_y= True)
+def get_pivot(cp : typing.Literal['C', 'P'], 
+        item : typing.Literal['adj_price', 'iv', 'delta', 'gamma', 'vega'],
+        table : typing.Literal['weekly_mon', 'weekly_thu', 'monthly'],
+        term = 1,
+        path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")
+        ):
 
-# #%% weekly buy strangle
-#     var = dict(
-#     stop_dates = [],
-#     dte_stop = 0,
-#     profit = 2,
-#     loss = -0.3,
-#     is_complex_pnl = False,
-#     is_intraday_stop = False,
-#     start_date = '20100101',
-#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
-#     show_chart = True
-#     )
+    conn = duckdb.connect(path)
 
-#     entry_date = df_k200.weekday(1)
-#     table = 'weekly_mon'
-#     iv_range = [0, 999]
-    
-#     dict_call = {'entry_dates' : entry_date, 'table' : table, 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 2.5, 'term' : 1, 'volume' : 1, 'iv_range' : iv_range}
-#     dict_put = {'entry_dates' : entry_date, 'table' : table, 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 2.5, 'term' : 1, 'volume' : 1, 'iv_range' : iv_range}
-    
-#     buystrg = backtest(dict_call, dict_put).equal_inout(**var)
-#     print(buystrg['res'].value_counts('stop'))
+    if table in ['weekly_mon', 'weekly_thu']:
 
-#     aggret = buystrg['pnl']
-#     aggret = aggret.join(df_k200['close'], how = 'left')
-#     fig, ax = plt.subplots()
-#     aggret.iloc[:, 0:3].plot(ax = ax)
-#     aggret['close'].plot(ax = ax, secondary_y= True)
+        df = conn.execute(f"SELECT * FROM weekly_data where cp = '{cp}' and items = '{item}' and table_name = '{table}' and term = {term}").fetchdf().set_index('date')
+        df.index = pd.to_datetime(df.index, format = '%Y-%m-%d')
+        df_pivot = pd.pivot_table(df, values = 'value', index = [df.index, 'dte', 'k200'], columns = 'moneyness')
 
-# #%% weekly_strangle
-#     var = dict(
-#     stop_dates = [],
-#     dte_stop = 1,
-#     profit = 0.5,
-#     loss = -0.5,
-#     is_complex_pnl = False,
-#     is_intraday_stop = False,
-#     start_date = '20100101',
-#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
-#     show_chart = True
-#     )
+    if table == 'monthly':
+        
+        df = conn.execute(f"SELECT * FROM monthly_data where cp = '{cp}' and items = '{item}' and table_name = '{table}' and term = {term}").fetchdf().set_index('date')
+        df.index = pd.to_datetime(df.index, format = '%Y-%m-%d')
+        df_pivot = pd.pivot_table(df, values = 'value', index = [df.index, 'dte', 'k200'], columns = 'moneyness')
 
-#     table = 'weekly_thu'
-#     entry_dates = df_k200.weekday(4)
-#     iv_range = [13, 999]
+    conn.close()
 
-#     dict_call1 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : -2, 'iv_range' : iv_range}
-#     dict_call2 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 10, 'term' : 1, 'volume' : 2, 'iv_range' : iv_range}
-#     dict_put1 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : 1, 'volume' : -2, 'iv_range' : iv_range}
-#     dict_put2 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 10, 'term' : 1, 'volume' : 2, 'iv_range' : iv_range}
+    return df_pivot
 
-#     straddle = backtest(dict_call1, dict_put1).equal_inout(**var)
-#     print(straddle['res']['stop'].value_counts())
-#     condor = backtest(dict_call1, dict_call2, dict_put1, dict_put2).equal_inout(**var)
-#     print(condor['res']['stop'].value_counts())
+def get_slope(cp : typing.Literal['C', 'P'],
+            item : typing.Literal['adj_price', 'iv', 'delta', 'gamma', 'vega'],
+            table : typing.Literal['weekly_mon', 'weekly_thu', 'monthly'],
+            term): 
 
-#     aggret = straddle['pnl']
-#     aggret = aggret.join(df_k200['close'], how = 'left')
-#     fig, ax = plt.subplots()
-#     aggret.iloc[:, 0:3].plot(ax = ax)
-#     aggret['close'].plot(ax = ax, secondary_y= True)
+    ''' 변동성 트레이딩 구조에서 동일 콜/풋 내 slope 는 가장 차지하는 비중이 낮다는 판단
+    막말로 slope trade인 ratio 와 backspread 도 vega 레벨 자체가 손익에 차지하는 비중이 훨씬 큼
+    유사 비유하자면, 금리 하락장 => 듀레이션 롱을 위한 장기물 매수 손익 >>> (기준금리 인하에 따른) 커브 스팁 손익
+    (ratio 와 backspread는 사실상 slope trade 라기 보다는 vomma trade 임...)
+    '''
+    pass
 
-# #%%  weekly_butterfly
+def get_skew(item : typing.Literal['adj_price', 'iv', 'delta', 'gamma', 'vega'],
+            table : typing.Literal['weekly_mon', 'weekly_thu', 'monthly'],
+            term = 1,
+            is_index = True,
+            path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")
+            ):
 
-#     var = dict(
-#     stop_dates = [],
-#     dte_stop = 0,
-#     profit = 0.5,
-#     loss = -999,
-#     is_complex_pnl = True,
-#     is_intraday_stop = False,
-#     start_date = '20120101',
-#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
-#     show_chart = True,
-#     use_polars = True
-#     )
+    '''skew : 계산식  PUT - CALL IV 로 계산 (대부분 양수로 나오게)'''
 
-#     entry_dates = df_k200.weekday(4)
-#     dte = [1, 999]
-#     term = 1
-#     table = 'weekly_thu'
+    if table in ['weekly_mon', 'weekly_thu']:
+        col = [0, 2.5, 5, 7.5, 10]
 
-#     dict_call1 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     dict_call2 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 10, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     dict_call3 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 12.5, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_call1 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.15, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_call2 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.08, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     # dict_call3 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.05, 'term' : term, 'volume' : 1, 'dte' : dte}
-    
-#     dict_put1 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 7.5, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     dict_put2 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 10, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     dict_put3 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 12.5, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_put1 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.15, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_put2 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.08, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     # dict_put3 = {'entry_dates' : entry_dates, 'table' : table, 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.05, 'term' : term, 'volume' : 1, 'dte' : dte}
-    
-#     callbutterfly = backtest(dict_call1, dict_call2, dict_call3).equal_inout(**var)
-#     putbutterfly = backtest(dict_put1, dict_put2, dict_put3).equal_inout(**var)
+    else:
+        col = [0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20]
 
-#     aggret = add_multiple_strat(callbutterfly['pnl'], putbutterfly['pnl'])
-#     aggret = aggret.join(df_k200['close'], how = 'left')
-#     fig, ax = plt.subplots()
-#     aggret.iloc[:, 0:3].plot(ax = ax)
-#     aggret['close'].plot(ax = ax, secondary_y= True)
 
-# #%% monthly_butterfly -> 이거 되는거 같음 profit 1pt로 콜풋 따로 운용
+    call = get_pivot('C', item, table, term, path)
+    put = get_pivot('P', item, table, term, path)
 
-#     var = dict(
-#     stop_dates = [],
-#     dte_stop = 0,
-#     profit = 1,
-#     loss = -999,
-#     is_complex_pnl = True,
-#     is_intraday_stop = False,
-#     start_date = '20100101',
-#     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
-#     show_chart = True,
-#     use_polars = True
-#     )
-  
-#     up = df_k200.supertrend.trend('l')
-#     down = df_k200.supertrend.trend('s')
-#     weekday = df_k200.weekday([0])
+    sub = put.sub(call)
 
-#     entry_dates = get_entry_exit.get_date_intersect(weekday)
-#     dte = [1, 100]
-#     term = 2
+    if is_index == True:
+        result = sub[col].mean(axis = 1)
+    else:
+        result = sub[col]
+    return result
 
-#     dict_call1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 20, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     dict_call2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 27.5, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     dict_call3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'moneyness', 'select_value' : 35, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_call1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.15, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_call2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.08, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     # dict_call3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'C', 'type' : 'delta', 'select_value' : 0.05, 'term' : term, 'volume' : 1, 'dte' : dte}
-    
-#     dict_put1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 20, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     dict_put2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 27.5, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     dict_put3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'moneyness', 'select_value' : 35, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_put1 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.15, 'term' : term, 'volume' : 1, 'dte' : dte}
-#     # dict_put2 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.08, 'term' : term, 'volume' : -2, 'dte' : dte}
-#     # dict_put3 = {'entry_dates' : entry_dates, 'table' : 'monthly', 'cp' : 'P', 'type' : 'delta', 'select_value' : -0.05, 'term' : term, 'volume' : 1, 'dte' : dte}
-    
-#     callbutterfly = backtest(dict_call1, dict_call2, dict_call3).equal_inout(**var)
-#     putbutterfly = backtest(dict_put1, dict_put2, dict_put3).equal_inout(**var)
+def get_calendar(
+                cp : typing.Literal['C', 'P'],
+                item : typing.Literal['adj_price', 'iv', 'delta', 'gamma', 'vega'],
+                ref_table : typing.Literal['weekly_mon', 'weekly_thu', 'monthly'],
+                term_1,
+                sub_table : typing.Literal['weekly_mon', 'weekly_thu', 'monthly'],
+                term_2,
+                is_index = True,
+                path = pathlib.Path.joinpath(pathlib.Path.cwd().parents[0], "commonDB/option.db")
+                ):
 
-#     aggret = add_multiple_strat(callbutterfly['pnl'], putbutterfly['pnl'])
-#     aggret = aggret.join(df_k200['close'], how = 'left')
-#     fig, ax = plt.subplots()
-#     aggret.iloc[:, 0:3].plot(ax = ax)
-#     aggret['close'].plot(ax = ax, secondary_y= True)
-    
+    if ref_table in ['weekly_mon', 'weekly_thu']:
+        col = [2.5, 5, 7.5, 10, 12.5, 15]
 
-# %%
+    else:
+        col = [5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5, 30]
+
+    ''' 동일방향 (콜-콜 / 풋-풋), 다른 만기 df간의 item 차이 비교'''
+    ref_table = get_pivot(cp, item, ref_table, term_1, path)
+    sub_table = get_pivot(cp, item, sub_table, term_2, path)
+
+    ref_index = ref_table[col].dropna(how = 'all').index
+    ref_table = ref_table.loc[ref_index]
+    sub_index = sub_table[col].dropna(how = 'all').index
+    sub_table = sub_table.loc[sub_index]
+
+    ref_table = ref_table.reset_index(["dte", "k200"])
+    sub_table = sub_table.reset_index(["dte", "k200"])
+
+    df_sub = ref_table.sub(sub_table, axis = 0)[col].dropna(how = 'all', axis = 0)
+
+    df_sub = pd.merge(df_sub, ref_table['dte'], how = 'inner', left_index = True, right_index = True)
+    df_sub = pd.merge(df_sub, ref_table['k200'], how = 'inner', left_index = True, right_index = True)
+
+    df_sub = df_sub.set_index([df_sub.index, 'dte', 'k200'])
+
+    if is_index == True:
+        result = df_sub[col].mean(axis = 1)
+
+    else:
+        result = df_sub[col]
+
+    return result
+
+
