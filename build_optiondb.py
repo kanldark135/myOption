@@ -8,7 +8,7 @@ import sqlite3
 import duckdb
 import preprocessing_option_data
 import pathlib
-import optimize
+import get_all_backtests
 import backtest as bt
 
 product_id_placeholder = {'KRDRVOPK2I' : 'monthly',
@@ -185,17 +185,17 @@ def resave_data():
 
         table = [table]
         types = ['moneyness']
-        term = list(optimize.generate_iterables([term]))
+        term = list(get_all_backtests.generate_iterables([term]))
         ref_values = dict(
             moneyness = [0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5, 30, 32.5, 35, 37.5, 40] # 위클리용
         )
 
         leg_numbers = 0
         offset_values = dict(
-            moneyness = optimize.generate_moneyness_offset(number_offset_legs = leg_numbers, interval_between_legs=2.5, min_offset=2.5, max_offset = 15)
+            moneyness = get_all_backtests.generate_moneyness_offset(number_offset_legs = leg_numbers, interval_between_legs=2.5, min_offset=2.5, max_offset = 15)
         )
 
-        query_vars = optimize.generate_query_vars(entry_dates,
+        query_vars = get_all_backtests.generate_query_vars(entry_dates,
                                         table,
                                         types,
                                         term,

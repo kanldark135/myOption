@@ -558,7 +558,7 @@ def get_option(entry_dates,
                 ),
                 iv_selected_data AS (
                 SELECT t.*,
-                    ROW_NUMBER() OVER(PARTITION BY t.date ORDER BY t.delta_difference ASC) AS equal_deltadiff_cols
+                    ROW_NUMBER() OVER (PARTITION BY t.date ORDER BY t.delta_difference ASC) AS equal_deltadiff_cols
                     FROM term_selected_data t
                     WHERE t.iv BETWEEN {iv_range[0]} AND {iv_range[1]}
                 ),
@@ -751,7 +751,6 @@ class backtest:
         self.k200 = self.aux_data['k200']
         self.vkospi = self.aux_data['vkospi']
    
-
         end_time = time.time()
         print(f"importing data : {end_time - start_time} seconds")
 
@@ -851,13 +850,15 @@ class backtest:
                     start_date = None,
                     end_date = datetime.datetime.today().strftime("%Y-%m-%d"),
                     show_chart = False,
-                    use_polars = False
+                    use_polars = False,
+                    apply_costs = True,
+                    slippage_point = 0.01,
+                    commission_point = 0.002  # 수수료와 슬리피지 적용 여부
                     ):
 
         start_time = time.time()
 
         # 1. 추출된 데이터들 전부 시간형으로 변경        
-        # start_date / end_date 만들어놓은 이유 : 나중에 가격데이터 일부만 빼서 train / test set 나눌려고
         df = self.concat_df.copy()
 
         start_date = pd.to_datetime(start_date)
@@ -865,33 +866,48 @@ class backtest:
         stop_dates = pd.to_datetime(stop_dates)
 
         if not df.empty:
-
             df = df.loc[(slice(start_date, end_date))]
-            df = df.loc[start_date <= df.index.get_level_values('entry_date')] # 전략 시작일 이전에 entry 되어있는 조건들은 삭제하기 위한 장치
+            df = df.loc[start_date <= df.index.get_level_values('entry_date')]
             df_daterange = df.index.get_level_values(level = 'date')
-            date_range = self.k200.loc[slice(df_daterange[0], df_daterange[-1])].index  # get_option 은 실제 entry_date 에 해당하는 날만 가져오는 반면, 분석은 해당 기간 전체애 대해 하기 위해서 별도의 date_range 정의
-
+            date_range = self.k200.loc[slice(df_daterange[0], df_daterange[-1])].index
         else:
-            # 비어 있을 경우 기본 date_range 정의
             date_range = pd.DatetimeIndex([])
             print("Warning: No trades found. Using an empty date_range.")
-            return  # 함수 종료
+            return
 
-        # 2. 한 그룹 (= entry_date) 에 대한 매매결과 도출
         def process_single_group(group, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop):
-
             group = group.copy()
             
             #1. 데이터 정리
-            
             value_sum = group.xs('value', axis=1, level=1).sum(axis=1)
             group['value_sum'] = value_sum
             group['daily_pnl'] = value_sum.diff().fillna(0)
+            
+            # 수수료와 슬리피지 적용 (고정 포인트)
+            if apply_costs:
+                # 진입 시 비용 (각 leg별로 고정 포인트 적용)
+                entry_cost = 0
+                for leg_name in group.columns.get_level_values(0).unique():
+                    volume = self.order_volume[leg_name]
+                    entry_cost += abs(volume) * (commission_point + slippage_point)
+                group.loc[group.index.get_level_values('date') == group.index.get_level_values('entry_date'), 'daily_pnl'] -= entry_cost
+                group.loc[group.index.get_level_values('date') == group.index.get_level_values('entry_date'), 'trading_cost'] = entry_cost
+                
+                # 청산 시 비용 (각 leg별로 고정 포인트 적용)
+                exit_cost = 0
+                for leg_name in group.columns.get_level_values(0).unique():
+                    volume = self.order_volume[leg_name]
+                    exit_cost += abs(volume) * (commission_point + slippage_point)
+                group.loc[group.index.get_level_values('date') == group.index.get_level_values('date')[-1], 'daily_pnl'] -= exit_cost
+                group.loc[group.index.get_level_values('date') == group.index.get_level_values('date')[-1], 'trading_cost'] = exit_cost
+            else:
+                group['trading_cost'] = 0
+            
             group['cum_pnl'] = group['daily_pnl'].cumsum()
             
             # 만약 캘린더 스프레드인 경우 가장 작은 dte 기준으로 모든 전략의 dte 일치
             min_dte = group.xs('dte', axis = 1, level = 1).min(axis = 1, skipna = True).cummin() 
-            group['min_dte'] = min_dte.clip(lower = 0) # 혹시 음수가 있을지도 (없어야겠지만) 있는경우 0처리
+            group['min_dte'] = min_dte.clip(lower = 0)
 
             # 2. 익손절 적용
             premium = group.loc[:, 'value_sum'].iloc[0]
@@ -917,7 +933,6 @@ class backtest:
             loss_stop = get_earliest_stop_date(group, group['cum_pnl'] <= loss_threshold, pd.Timestamp('2099-01-01'))        # 4. loss_stop 기반
 
             if is_intraday_stop == True:
-
                 pass # 장중손절 구현에 대한 추가 코드 작성 필요
 
             earliest_stop = min(dte_stop, custom_stop, profit_stop, loss_stop)
@@ -939,7 +954,6 @@ class backtest:
         
         # 3. 위의 개별 그룹에 대한 계산을 병렬처리 또는 모든 그룹들에 대한 적용하는 함수
         def process_groups(df, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop):
-
             grouped = df.groupby(level = 'entry_date')
             group_count = len(grouped)
             data_size = len(df)
@@ -986,6 +1000,90 @@ class backtest:
                 pl.min_horizontal(pl.col(dte_columns)).cum_min().clip(0).over('entry_date').alias('min_dte')
             )
                                     
+            # 수수료와 슬리피지 계산
+            if apply_costs:
+                # 진입/청산 비용 계산 (각 leg별 고정 포인트)
+                fixed_cost = sum(abs(vol) * (commission_point + slippage_point) 
+                               for vol in self.order_volume.values())
+                
+                # 진입 시점 비용 적용
+                pl_df = pl_df.with_columns([
+                    pl.when(pl.col("date") == pl.col("entry_date"))
+                    .then(pl.col("daily_pnl") - fixed_cost)
+                    .otherwise(pl.col("daily_pnl"))
+                    .alias("daily_pnl"),
+                    pl.when(pl.col("date") == pl.col("entry_date"))
+                    .then(pl.lit(fixed_cost))
+                    .otherwise(pl.lit(0))
+                    .alias("entry_cost")
+                ])
+                
+                # 누적 손익 재계산 (exit cost 적용 전)
+                pl_df = pl_df.with_columns(
+                    pl.col("daily_pnl").cum_sum().over("entry_date").alias("cum_pnl")
+                )
+
+                # 익절/손절 조건
+                pl_df = pl_df.with_columns(
+                    pl.col('value_sum').first().over('entry_date').alias('premium')
+                )
+                pl_df = pl_df.with_columns(
+                    profit_threshold = pl.when(is_complex_pnl == True).then(profit).otherwise((pl.col('premium') * profit).abs()),
+                    loss_threshold = pl.when(is_complex_pnl == True).then(loss).otherwise(-(pl.col('premium') * loss).abs())
+                )
+
+                # stop_date 계산
+                stop_conditions = pl_df.group_by("entry_date").agg([
+                    pl.when(pl.col("cum_pnl") >= pl.col("profit_threshold")).then(pl.col("date")).min().alias("profit_stop"),
+                    pl.when(pl.col("cum_pnl") <= pl.col("loss_threshold")).then(pl.col("date")).min().alias("loss_stop"),
+                    pl.when(pl.col("min_dte") >= dte_stop).then(pl.col("date")).max().alias("dte_stop"),
+                    pl.when(pl.col("date").is_in(stop_dates)).then(pl.col("date")).min().alias("custom_stop"),
+                ])
+
+                # 가장 빠른 stop_date 계산
+                stop_conditions = stop_conditions.with_columns(
+                    stop=pl.min_horizontal(["profit_stop", "loss_stop", "dte_stop", "custom_stop"])
+                )
+
+                # 왜 stop됬는지 별도 컬럼 생성
+                stop_conditions = stop_conditions.with_columns(
+                    pl.when(pl.col("profit_stop") == pl.col("stop")).then(pl.lit('win'))
+                    .when(pl.col("loss_stop") == pl.col("stop")).then(pl.lit('loss'))
+                    .when(pl.col("custom_stop") == pl.col("stop")).then(pl.lit('stop'))
+                    .when(pl.col("dte_stop") == pl.col("stop")).then(pl.lit('dte'))
+                    .otherwise(None)
+                    .alias('whystop')
+                )
+
+                # stop_date를 기준으로 필터링하고 exit cost 적용
+                pl_df = pl_df.join(stop_conditions, how = 'left', left_on = 'entry_date', right_on = 'entry_date')\
+                    .filter(pl.col("date") <= pl.col("stop"))\
+                    .with_columns([
+                        # exit cost 적용
+                        pl.when(pl.col('date') == pl.col('stop'))
+                        .then(pl.col("daily_pnl") - fixed_cost)
+                        .otherwise(pl.col("daily_pnl"))
+                        .alias("daily_pnl"),
+                        pl.when(pl.col('date') == pl.col('stop'))
+                        .then(pl.lit(fixed_cost))
+                        .otherwise(pl.lit(0))
+                        .alias("exit_cost"),
+                        # whystop 컬럼 추가
+                        pl.when(pl.col('date') == pl.col('stop')).then(pl.col('whystop')).otherwise(None).alias('whystop')
+                    ])
+                
+                # Combine entry and exit costs into total trading cost
+                pl_df = pl_df.with_columns(
+                    (pl.col("entry_cost") + pl.col("exit_cost")).alias("trading_cost")
+                )
+                
+                # 누적 손익 재계산 (exit cost 적용 후)
+                pl_df = pl_df.with_columns(
+                    pl.col("daily_pnl").cum_sum().over("entry_date").alias("cum_pnl")
+                )
+            else:
+                pl_df = pl_df.with_columns(pl.lit(0).alias("trading_cost"))
+
             # 익절/손절 조건
             pl_df = pl_df.with_columns(
                 pl.col('value_sum').first().over('entry_date').alias('premium')
@@ -1034,8 +1132,7 @@ class backtest:
 
             return res
         
-# 도출된 결과 가지고 최종 수익률 등
-        
+        # 도출된 결과 가지고 최종 수익률 등
         if use_polars:
             df_result = process_groups_polars(df, stop_dates, dte_stop, profit, loss, is_complex_pnl, is_intraday_stop)
         else:
@@ -1047,14 +1144,12 @@ class backtest:
         df_pnl['dd'] = df_pnl['cum_pnl'] - df_pnl['cum_pnl'].cummax()
 
         end_time = time.time()
-
         backtesting_time = end_time - start_time
 
         # optional : 차트표시 -> verbose = True/False 로 할지말지 만들기
         start_time = time.time()
 
         if show_chart:
-            
             df_k200 = self.k200['close'].reindex(date_range)
             df_vkospi = self.vkospi['close'].reindex(date_range).ffill() # 이상하게 vkospi 에 k200에 있는 일부 영업일이 없는데, 많지 않아서 그냥 ffill() 처리
 
@@ -1075,7 +1170,6 @@ class backtest:
             plt.show()
 
         end_time = time.time()
-
         plotting_time = end_time - start_time
 
         df_check = df_result.loc[:,
@@ -1087,6 +1181,7 @@ class backtest:
                                 (df_result.columns.str.endswith("value_sum"))|
                                 (df_result.columns.str.endswith("daily_pnl"))|
                                 (df_result.columns.str.endswith("cum_pnl"))|
+                                (df_result.columns.str.endswith("trading_cost"))|
                                 (df_result.columns.str.contains("whystop"))
                                 ]
         # k200 종가 추가
