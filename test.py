@@ -320,16 +320,17 @@ def get_entry_date(strat, cp):
         "fricalendarabove75": lambda: get_entry_exit.get_date_intersect(df_k200.weekday(4), 
                             get_entry_exit.iv.calendar_filter(cp, first_table, first_term, second_table, second_term, 0.75, 'upper', test_path)) ,
 
-
-        "psartrendup": lambda: df_k200.psar.trend('l'), # psar 상승하고있는 경우
-        "psartrenddown": lambda: df_k200.psar.trend('s'),
+        "psartrendup": lambda: get_entry_exit.get_date_intersect(df_k200.weekday(0), df_k200.psar.trend('l')), # psar 상승하고있는 경우
+        "psartrenddown": lambda: get_entry_exit.get_date_intersect(df_k200.weekday(0), df_k200.psar.trend('s')),
         "stochturnup": lambda: df_k200.stoch.rebound1('l', 10, 3, 3),
         "stochturndown": lambda: df_k200.stoch.rebound1('s', 10, 3, 3),
         "rsiturnup": lambda: df_k200.rsi.rebound('l', 14, 100, 30, 60),
         "rsiturndown": lambda: df_k200.rsi.rebound('s', 14, 100, 30, 60),
         "stochturndown": lambda: df_k200.stoch.rebound1('s', 10, 3, 3),
         "pricerebound" : lambda : df_k200.priceaction.change_recent(change = -0.03),
-        "pricedrop" : lambda : df_k200.priceaction.change_recent(change = 0.03)
+        "pricerebound2" : lambda : df_k200.priceaction.change_recent(change = -0.05),
+        "pricedrop" : lambda : df_k200.priceaction.change_recent(change = 0.03),
+        "pricedrop2" : lambda : df_k200.priceaction.change_recent(change = 0.05)
     }
 
     return entry_dates.get(entry)()
@@ -511,8 +512,10 @@ def get_counter_date(strat):
                 'mon' : 'wed',
                 'tue' : 'thu',
                 'wed' : 'fri'}
-        
-    new_entry = counter[old_entry]
+    try:
+        new_entry = counter[old_entry]
+    except KeyError:
+        new_entry = old_entry
 
     def temp_func_2(x):
         if x == "weekly_thu":
@@ -1083,7 +1086,7 @@ class runtest:
 
 if __name__ == "__main__":
 
-    strat = "monivbelow50_table('monthly', 'monthly')_typedelta&delta_term(1, 2)_volume(-1, 2)_ref[-0.1, -0.07]_exitnoexit_dte1_p2_l-1.5_True"
+    strat = "monivbelow50_table('monthly', 'monthly')_typedelta&delta_term(1, 1)_volume(1, -2)_ref[-0.25, -0.1]_exitnoexit_dte7_p4_l-2_True"
     cp = "P"
     commission_point = 0.002
     slippage_point = 0.01

@@ -154,12 +154,12 @@ def get_co_drawdown(daily_pnl, threshold = -1):
     return co_dd_matrix
 
 IS_WEEKLY = False
-CLUSTER_THRESHOLD = 0.3
+CLUSTER_THRESHOLD = 0.2
 START_DATE = '2010-01-01'
 COMMISSION_POINT = 0.002
 SLIPPAGE_POINT = 0.01
 CLUSTERING_METRICS = [calmar]
-MINIMUM_METRIC_SCORE = 1
+MINIMUM_METRIC_SCORE = 0.8
 
 if IS_WEEKLY: 
     xlsx_path = pathlib.Path.joinpath(pathlib.Path.cwd(), "전략weekly.xlsx")
@@ -171,77 +171,76 @@ df_raw = refine_rawdata(df_raw)
 
 #%% 2) Clustering by correlation
 
-def cluster_by_category(df_raw, is_weekly = True, threshold = 0.3, target_metrics = [calmar], commission_point = 0.002, slippage_point = 0.01, nth_best = 3):
+# def cluster_by_category(df_raw, is_weekly = True, threshold = 0.3, target_metrics = [calmar], commission_point = 0.002, slippage_point = 0.01, nth_best = 3):
+
+#     ''' target_metric : calmar / sortino + 추가 필요 '''
+
+#     grouped = df_raw.groupby("전략분류")
+
+#     df_result = pd.DataFrame()
+#     df_pnl = pd.DataFrame()
+
+#     start_time = time.time()
+
+#     for name, group in grouped:
+#         strategies = group.index
+#         category_pnl, category_metrics = combine_pnl(strategies, *target_metrics, commission_point = COMMISSION_POINT, slippage_point = SLIPPAGE_POINT)
+#         category_pnl = category_pnl.drop(columns = ['close']).fillna(0)
+#         category_pnl.columns = strategies
+#         category_metrics.index = strategies
+
+#         if is_weekly == True:
+#             category_pnl = category_pnl.loc['2019-09-01' : ]
+
+#         # correlation matrix and ravelled correlation distance
+#         # corr_distance considers both tendency and direction (whereas 1 - abs(corr) considers only tendency, therefore better for identifying long/short pairs)
+#         corr = category_pnl.corr().fillna(0)
+#         corr_distance = 1 - corr
+#         dist_array = squareform(corr_distance)
+        
+#         # hirarchical clustering
+#         linkage_matrix = linkage(dist_array, method = 'average')
+#         clusters = fcluster(linkage_matrix, threshold, criterion = 'distance')
+
+#         # 여러 metrics 동시에 반영해서 score 화 시키는 접근
+#         if len(target_metrics) > 1:
+# ######### composite score 만드는 방법 -> 추후 추가적으로 고민해볼 필요. 일단은 단순 산술평균 score
+#             category_metrics['score'] = category_metrics.apply(get_composite_score, axis = 1)
+#             score_column = 'score'
+#         else:
+#             category_metrics = category_metrics.rename(columns = {target_metrics[0].__name__ : 'score'})
+#             score_column = 'score'
+
+#         df_cluster = pd.DataFrame({'strategy' : category_pnl.columns, 'cluster' : clusters}).set_index('strategy')
+#         df_cluster = pd.merge(df_cluster, category_metrics, left_index = True, right_index = True)
+
+#         # selecting strategies that are #th best + return target_metric
+#         df_cluster.reset_index(inplace = True)
+#         result = df_cluster.groupby('cluster').apply(lambda x : x.nlargest(nth_best, columns = score_column)).reset_index(drop = True)
+#         result.columns = ['strategy', 'cluster', score_column]
+#         df_result = pd.concat([df_result, result], axis = 0)
+
+#         category_pnl = category_pnl.loc[:, result['strategy']]
+#         df_pnl = pd.concat([df_pnl, category_pnl], join = 'outer', axis = 1)
+        
+#     end_time = time.time()
+
+#     print(f"--------------- Time taken : {(end_time - start_time) / 60} minutes")
+
+#     df_result = df_result.set_index(['strategy'], drop = True)
+#     df_pnl = df_pnl.T.drop_duplicates().T
+
+#     return df_result, df_pnl
+
+#1. 일단 수익률별로 1 - threshold 보다 큰 correlation 끼리 clustering
+def cluster_all(df_raw, is_weekly = True, threshold = 0.3, target_metrics = [calmar], commission_point = 0.002, slippage_point = 0.01):
 
     ''' target_metric : calmar / sortino + 추가 필요 '''
-
-    grouped = df_raw.groupby("전략분류")
-
-    df_result = pd.DataFrame()
-    df_pnl = pd.DataFrame()
-
-    start_time = time.time()
-
-    for name, group in grouped:
-        strategies = group.index
-        category_pnl, category_metrics = combine_pnl(strategies, *target_metrics, commission_point = COMMISSION_POINT, slippage_point = SLIPPAGE_POINT)
-        category_pnl = category_pnl.drop(columns = ['close']).fillna(0)
-        category_pnl.columns = strategies
-        category_metrics.index = strategies
-
-        if is_weekly == True:
-            category_pnl = category_pnl.loc['2019-09-01' : ]
-
-        # correlation matrix and ravelled correlation distance
-        # corr_distance considers both tendency and direction (whereas 1 - abs(corr) considers only tendency, therefore better for identifying long/short pairs)
-        corr = category_pnl.corr().fillna(0)
-        corr_distance = 1 - corr
-        dist_array = squareform(corr_distance)
-        
-        # hirarchical clustering
-        linkage_matrix = linkage(dist_array, method = 'average')
-        clusters = fcluster(linkage_matrix, threshold, criterion = 'distance')
-
-        # 여러 metrics 동시에 반영해서 score 화 시키는 접근
-        if len(target_metrics) > 1:
-######### composite score 만드는 방법 -> 추후 추가적으로 고민해볼 필요. 일단은 단순 산술평균 score
-            category_metrics['score'] = category_metrics.apply(get_composite_score, axis = 1)
-            score_column = 'score'
-        else:
-            category_metrics = category_metrics.rename(columns = {target_metrics[0].__name__ : 'score'})
-            score_column = 'score'
-
-        df_cluster = pd.DataFrame({'strategy' : category_pnl.columns, 'cluster' : clusters}).set_index('strategy')
-        df_cluster = pd.merge(df_cluster, category_metrics, left_index = True, right_index = True)
-
-        # selecting strategies that are #th best + return target_metric
-        df_cluster.reset_index(inplace = True)
-        result = df_cluster.groupby('cluster').apply(lambda x : x.nlargest(nth_best, columns = score_column)).reset_index(drop = True)
-        result.columns = ['strategy', 'cluster', score_column]
-        df_result = pd.concat([df_result, result], axis = 0)
-
-        category_pnl = category_pnl.loc[:, result['strategy']]
-        df_pnl = pd.concat([df_pnl, category_pnl], join = 'outer', axis = 1)
-        
-    end_time = time.time()
-
-    print(f"--------------- Time taken : {(end_time - start_time) / 60} minutes")
-
-    df_result = df_result.set_index(['strategy'], drop = True)
-    df_pnl = df_pnl.T.drop_duplicates().T
-
-    return df_result, df_pnl
-
-def cluster_all(df_raw, is_weekly = True, threshold = 0.3, target_metrics = [calmar], commission_point = 0.002, slippage_point = 0.01, nth_best = 3):
-
-    ''' target_metric : calmar / sortino + 추가 필요 '''
-
-    df_result = pd.DataFrame()
 
     start_time = time.time()
 
     strategies = df_raw.index
-    pnl, metrics = combine_pnl(strategies, *target_metrics, commission_point = COMMISSION_POINT, slippage_point = SLIPPAGE_POINT)
+    pnl, metrics = combine_pnl(strategies, *target_metrics, commission_point = commission_point, slippage_point = slippage_point)
     pnl = pnl.drop(columns = ['close']).fillna(0)
     pnl.columns = strategies
     metrics.index = strategies
@@ -271,41 +270,62 @@ def cluster_all(df_raw, is_weekly = True, threshold = 0.3, target_metrics = [cal
     df_cluster = pd.DataFrame({'strategy' : pnl.columns, 'cluster' : clusters}).set_index('strategy')
     df_cluster = pd.merge(df_cluster, metrics, left_index = True, right_index = True)
 
-    # selecting strategies that are #th best + return target_metric
-    df_cluster.reset_index(inplace = True)
-    result = df_cluster.groupby('cluster').apply(lambda x : x.nlargest(nth_best, columns = score_column)).reset_index(drop = True)
-    result.columns = ['strategy', 'cluster', score_column]
-
-    df_result = pd.concat([df_result, result], axis = 0)
+    # 일단 지금까지 clustering 된 모든 결과는 엑셀에 저장해놓기
+    with pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace') as temp_writer:
+        df_cluster.to_excel(temp_writer, 'df_corr_all', header = True)
+        pnl.to_excel(temp_writer, "pnl_all", header = True)
 
     end_time = time.time()
-
+    
     print(f"--------------- Time taken : {(end_time - start_time) / 60} minutes")
+    
+#2. clustering 된 성과들 중에서 가장 score 높거나 / handpicked 된 전략들 1차로 추려놓기
+# 여기서 handpicked 기준은 1) 성과 / 2) 포지션 용이성 (fewer legs + 왠만하면 근월물)
+def get_df_corr(manual_selection = False, nth_best = 3):
 
-    df_result = df_result.set_index(['strategy'], drop = True)
+    df_cluster = pd.read_excel(xlsx_path, sheet_name = 'df_corr_all', header = 0, index_col = 0)
+    pnl = pd.read_excel(xlsx_path, sheet_name = 'pnl_all', header = 0, index_col = 0)
+    df_cluster.reset_index(inplace = True)
+    
+    if manual_selection == True:
+        result = df_cluster.loc[df_cluster['manual_selection'] == 1]
+        result.drop('manual_selection', axis = 1, inplace = True)
+    else:
+        # selecting strategies that are #th best + return target_metric
+        result = df_cluster.groupby('cluster').apply(lambda x : x.nlargest(nth_best, columns = 'score')).reset_index(drop = True)
+        result.drop('manual_selection', axis = 1, inplace = True)
+
+    result.columns = ['strategy', 'cluster', 'score']
+
+    df_result = result.set_index(['strategy'], drop = True)
     df_pnl = pnl.loc[:, df_result.index]
-    # df_pnl = df_pnl.T.drop_duplicates().T
 
     return df_result, df_pnl
 
-# 1) category 별로 correlation clustering 실시 후 (first_filter) -> 각 cluster 에서 n개씩 모아서 다시 correlation cluster 별로 top 1개 전략 추리기
+# 처음부터 raw 전략 다 불러와서 필터링 필요한 경우에에만 사용
+# cluster_all(df_raw, is_weekly = IS_WEEKLY, threshold = CLUSTER_THRESHOLD, target_metrics = CLUSTERING_METRICS, commission_point = COMMISSION_POINT, slippage_point = SLIPPAGE_POINT)
 
-# 2) all 전략들에 대해서 각 correlation cluster 별로 top 1개 전략 추리기
-df_all, pnl_all = cluster_all(df_raw, is_weekly = IS_WEEKLY, threshold = CLUSTER_THRESHOLD, target_metrics = CLUSTERING_METRICS, commission_point = COMMISSION_POINT, slippage_point = SLIPPAGE_POINT, nth_best = 1)
+df_auto, pnl_auto = get_df_corr(manual_selection = False, nth_best = 1)
+df_manual, pnl_manual = get_df_corr(manual_selection = True)
 
 with pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace') as writer:
     # df_first.to_excel(writer, sheet_name = 'first', header = True)
     # pnl_first.to_excel(writer, sheet_name = 'first_pnl', header = True)
     # df_second.to_excel(writer, sheet_name = 'second', header = True)
     # pnl_second.to_excel(writer, sheet_name = 'second_pnl', header = True)
-    df_all.to_excel(writer, sheet_name = '2) df_corr_filtered', header = True)
-    pnl_all.to_excel(writer, sheet_name = '2) pnl_corr_filtered', header = True)
 
-#%% 3) read clustering-filtered strats + add steps for weeklies
+    df_auto.to_excel(writer, sheet_name = '2) df_corr_auto', header = True)
+    pnl_auto.to_excel(writer, sheet_name = '2) pnl_corr_auto', header = True)
+    df_manual.to_excel(writer, sheet_name = '2) df_corr_manual', header = True)
+    pnl_manual.to_excel(writer, sheet_name = '2) pnl_corr_manual', header = True)
 
-# two step filtering 사용하는 경우라면 sheet_name 만 all 대신 second... 로 변경
-daily_pnl = pd.read_excel(xlsx_path, sheet_name = "2) pnl_corr_filtered", header = 0, index_col = 0)
-df = pd.read_excel(xlsx_path, sheet_name = "2) df_corr_filtered", header = 0, index_col = 0)
+#%% 3) (위클리는 opposite pair 별도 추가) -> metric 특정값 이상만 필터링
+
+# 기본빵은 manual 로 handpicked 우선 but auto도 마련
+daily_pnl = pd.read_excel(xlsx_path, sheet_name = "2) pnl_corr_manual", header = 0, index_col = 0)
+df = pd.read_excel(xlsx_path, sheet_name = "2) df_corr_manual", header = 0, index_col = 0)
+# daily_pnl = pd.read_excel(xlsx_path, sheet_name = "2) pnl_corr_auto", header = 0, index_col = 0)
+# df = pd.read_excel(xlsx_path, sheet_name = "2) df_corr_auto", header = 0, index_col = 0)
 
 daily_pnl.columns = list(map(lambda x : ast.literal_eval(x), daily_pnl.columns))
 df.index = list(map(lambda x : ast.literal_eval(x), df.index))
@@ -369,7 +389,8 @@ if IS_WEEKLY:
 
 else:
     # 1) score-based filtering
-    df = df.loc[df['score'] > 0]
+    df = df.loc[df['score'] > 0.4]
+    df['weekly_matching'] = [1000 + i for i in range(0, df.shape[0])] # weekly_matching 매칭용
     daily_pnl = daily_pnl.loc[:, daily_pnl.columns.isin(df.index)]
 
     with pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace') as writer:
@@ -383,7 +404,7 @@ else:
 #%% optimization    
 # 위클리 + 먼슬리 통합
 
-WEEKLY_MONTHLY_AGG = 'agg' # weekly/monthly/agg
+WEEKLY_MONTHLY_AGG = 'weekly' # weekly/monthly/agg
 
 if WEEKLY_MONTHLY_AGG == 'weekly':
 
@@ -403,7 +424,7 @@ if WEEKLY_MONTHLY_AGG == 'weekly':
         daily_pnl = existing_pnl.merge(new_pnl, left_index = True, right_index = True)
         daily_pnl.columns = df.index
         
-        writer = pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace')
+    with pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace') as writer:
         daily_pnl.to_excel(writer, sheet_name = "4) pnl_final", header = True)
 
 elif WEEKLY_MONTHLY_AGG == 'monthly':
@@ -420,11 +441,10 @@ elif WEEKLY_MONTHLY_AGG == 'monthly':
         new_strats = list(map(ast.literal_eval, df.index[~df.index.isin(daily_pnl.columns)]))
         new_pnl, dummy = combine_pnl(new_strats, *CLUSTERING_METRICS, commission_point = COMMISSION_POINT, slippage_point = SLIPPAGE_POINT)
         new_pnl = new_pnl.drop(columns = ['close']).fillna(0)
-
         daily_pnl = existing_pnl.merge(new_pnl, left_index = True, right_index = True)
         daily_pnl.columns = df.index
         
-        writer = pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace')
+    with pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace') as writer:
         daily_pnl.to_excel(writer, sheet_name = "4) pnl_final", header = True)
 
 elif WEEKLY_MONTHLY_AGG == 'agg':
@@ -437,8 +457,8 @@ elif WEEKLY_MONTHLY_AGG == 'agg':
     daily_pnl = daily_pnl.drop(columns = ['close']).fillna(0)
     daily_pnl.columns = df.index
 
-    writer = pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace')
-    daily_pnl.to_excel(writer, sheet_name = "4) pnl_final", header = True)
+    with pd.ExcelWriter(xlsx_path, engine = 'openpyxl', mode = 'a', if_sheet_exists = 'replace') as writer:
+        daily_pnl.to_excel(writer, sheet_name = "4) pnl_final", header = True)
 
 else:
     raise ValueError("WEEKLY_MONTHLY_AGG MUST BE ONE OF weekly/monthly/agg")

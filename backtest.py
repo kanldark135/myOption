@@ -1346,10 +1346,10 @@ def get_calendar(
                 ):
 
     if ref_table in ['weekly_mon', 'weekly_thu']:
-        col = [2.5, 5, 7.5, 10, 12.5, 15]
+        col = [0, 2.5, 5, 7.5, 10]
 
     else:
-        col = [5, 7.5, 10, 12.5, 15, 17.5, 20, 22.5, 25, 27.5, 30]
+        col = [0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20]
 
     ''' 동일방향 (콜-콜 / 풋-풋), 다른 만기 df간의 item 차이 비교'''
     ref_table = get_pivot(cp, item, ref_table, term_1, path)
@@ -1377,5 +1377,141 @@ def get_calendar(
         result = df_sub[col]
 
     return result
+
+#%% 
+
+if __name__ == "__main__":
+
+    import itertools
+
+    def get_table(df, table, col_weekly = [0, 2.5, 5, 7.5, 10], col_monthly = [0, 2.5, 5, 7.5, 10, 12.5, 15, 17.5, 20]):
+        if table in ['weekly_mon', 'weekly_thu']:
+            col = col_weekly
+        else:
+            col = col_monthly
+
+        df = df[col]
+        df = df.mean(axis = 1)
+        df_table = df.groupby('dte').describe()
+        df_table = df_table.loc[df_table['count'] > 10]
+        return df_table
+    
+    #1. 콜풋iv
+    cp = ['C', 'P']
+    table = ['weekly_mon', 'weekly_thu', 'monthly']
+    term = [1, 2]
+
+    tuples = itertools.product(cp, table, term)
+
+    df_iv= pd.DataFrame()
+
+    for cp, table, term in tuples:
+
+        try:
+            iv = get_pivot(cp, 'iv', table, term)
+            iv_table = get_table(iv, table)
+            iv_table['cp'] = cp
+            iv_table['table'] = table
+            iv_table['term'] = term
+        except KeyError:
+            continue
+
+        df_iv = pd.concat([df_iv, iv_table], axis = 0)
+
+    df_iv.to_csv("iv.csv", encoding = 'cp949')
+
+    #2. skew
+    cp = ['C', 'P']
+    table = ['weekly_mon', 'weekly_thu', 'monthly']
+    term = [1, 2]
+    tuples = itertools.product(cp, table, term)
+
+    df_skew = pd.DataFrame()
+
+    for cp, table, term in tuples:
+
+        try:
+            skew = get_skew('iv', table, term, is_index = False)
+            skew_table = get_table(skew, table)
+            skew_table['cp'] = cp
+            skew_table['table'] = table
+            skew_table['term'] = term
+        except KeyError:
+            continue
+
+        df_skew = pd.concat([df_skew, skew_table], axis = 0)
+
+    df_skew.to_csv('skew.csv', encoding = 'cp949')
+
+    # 3. 양매도 iv
+    table = ['weekly_mon', 'weekly_thu', 'monthly']
+    term = [1, 2]
+    tuples = itertools.product(table, term)
+
+    df_iv_both = pd.DataFrame()
+
+    for table, term in tuples:
+        try:
+            iv_call = get_pivot('C', 'iv', table = table, term = term)
+            iv_put = get_pivot('P', 'iv', table = table, term = term)
+            iv_all = (iv_call + iv_put)
+            table_all = get_table(iv_all, table)
+            table_all['table'] = table
+            table_all['term'] = term
+        except KeyError:
+            continue
+
+        df_iv_both = pd.concat([df_iv_both, table_all], axis = 0)
+
+    df_iv_both.to_csv("iv_both.csv", encoding = 'cp949')
+
+    #4. 캘린더
+
+    cp = ['C', 'P']
+
+    df_calendar = pd.DataFrame()
+
+    for cp in cp:
+        calendar1 = get_calendar(cp, 'iv', 'weekly_mon', 1, 'weekly_thu', 1, is_index = False)
+        table_1 = get_table(calendar1, 'weekly_mon')
+        table_1['cp'] = cp
+        table_1['table'] = 'weekly_mon'
+        table_1['term'] = 1
+
+        calendar2 = get_calendar(cp, 'iv', 'weekly_thu', 1, 'weekly_mon', 1, is_index = False)
+        table_2 = get_table(calendar2, 'weekly_thu')
+        table_2['cp'] = cp
+        table_2['table'] = 'weekly_thu'
+        table_2['term'] = 1
+
+        calendar3 = get_calendar(cp, 'iv', 'monthly', 1, 'monthly', 2, is_index = False)
+        table_3 = get_table(calendar3, 'monthly')
+        table_3['cp'] = cp
+        table_3['table'] = 'monthly'
+        table_3['term'] = 1
+
+        calendar4 = get_calendar(cp, 'iv', 'monthly', 2, 'monthly', 1, is_index = False)
+        table_4 = get_table(calendar4, 'monthly')
+        table_4['cp'] = cp
+        table_4['table'] = 'monthly'
+        table_4['term'] = 2
+
+        calendar5 = get_calendar(cp, 'iv', 'weekly_mon', 1, 'monthly', 1, is_index = False)
+        table_5 = get_table(calendar5, 'weekly_mon')
+        table_5['cp'] = cp
+        table_5['table'] = 'weekly_mon'
+        table_5['term'] = 1
+
+        calendar6 = get_calendar(cp, 'iv', 'weekly_thu', 1, 'monthly', 1, is_index = False)
+        table_6 = get_table(calendar6, 'weekly_thu')
+        table_6['cp'] = cp
+        table_6['table'] = 'weekly_thu'
+        table_6['term'] = 1
+
+        df_calendar = pd.concat([df_calendar, table_1, table_2, table_3, table_4, table_5, table_6], axis = 0)
+
+    df_calendar.to_csv("calendar2.csv", encoding = 'cp949')
+
+
 
 

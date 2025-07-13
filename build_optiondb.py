@@ -308,9 +308,9 @@ if __name__ == "__main__":
 # 2. 이거 하기 전에 exp_monthly / exp_weekly 에서 지나간 월물 만기들 수기로 기입 필요
 
 # 3. start_date 부터 end_date 까지 필요한 데이터들 거래소에서 scrape 해서 option.db monthly / weekly_mon / weekly_thu 테이블에 적재
-    start_date = '20250401'
-    end_date = '20250430'
-    today = '20250502' # 주말이나 휴일에 조회할때는 직전영업일로
+    start_date = '20250501'
+    end_date = '20250624'
+    today = '20250625' # 주말이나 휴일에 조회할때는 직전영업일로
     db_path = "C:/Users/kwan/Desktop/commonDB/"
     save_multiple_dates(start_date, end_date, today, db_path)
 

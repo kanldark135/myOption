@@ -471,17 +471,17 @@ if __name__ == "__main__":
             # fricalendarbelow50 = get_entry_exit.get_date_intersect(df_k200.weekday(4), get_entry_exit.iv.calendar_filter(cp, first_table, first_term, second_table, second_term, 0.5, 'lower', option_path)),
             # fricalendarbelow25 = get_entry_exit.get_date_intersect(df_k200.weekday(4), get_entry_exit.iv.calendar_filter(cp, first_table, first_term, second_table, second_term, 0.25, 'lower', option_path))
                                                                                                                                                                                                                                                                                                                                                                     
-            # psar_trend_up = get_entry_exit.get_date_intersect(df_k200.weekday(0), df_k200.psar.trend('l')), # psar 상승하고있을때 콜 진입
-            # stoch_turn_up = df_k200.stoch.rebound1('l', 10, 3, 3), # psar 상승하고있을때 콜 진입
-            # rsi_turn_up = df_k200.rsi.rebound('l', 14, low = 30, high = 60), # psar 상승하고있을때 콜 진입
-            # price_rebound = df_k200.priceaction.change_recent(change = -0.03), # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
-            # price_rebound2 = df_k200.priceaction.change_recent(change = -0.05) # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
+            # psartrendup = get_entry_exit.get_date_intersect(df_k200.weekday(0), df_k200.psar.trend('l')), # psar 상승하고있을때 콜 진입
+            # stochturnup = df_k200.stoch.rebound1('l', 10, 3, 3), # psar 상승하고있을때 콜 진입
+            # rsiturnup = df_k200.rsi.rebound('l', 14, low = 30, high = 60), # psar 상승하고있을때 콜 진입
+            # pricerebound = df_k200.priceaction.change_recent(change = -0.03), # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
+            # pricerebound2 = df_k200.priceaction.change_recent(change = -0.05) # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
             
-            psar_trend_down = get_entry_exit.get_date_intersect(df_k200.weekday(0), df_k200.psar.trend('s')), # psar 상승하고있을때 콜 진입 
-            stoch_turn_down = df_k200.stoch.rebound1('s', 10, 3, 3), # psar 상승하고있을때 콜 진입
-            rsi_turn_down = df_k200.rsi.rebound('s', 14, low = 30, high = 60), # psar 상승하고있을때 콜 진입
-            price_drop = df_k200.priceaction.change_recent(change = 0.03), # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
-            price_drop2 = df_k200.priceaction.change_recent(change = 0.05) # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
+            psartrenddown = get_entry_exit.get_date_intersect(df_k200.weekday(0), df_k200.psar.trend('s')), # psar 상승하고있을때 콜 진입 
+            stochturndown = df_k200.stoch.rebound1('s', 10, 3, 3), # psar 상승하고있을때 콜 진입
+            rsiturndown = df_k200.rsi.rebound('s', 14, low = 30, high = 60), # psar 상승하고있을때 콜 진입
+            pricedrop = df_k200.priceaction.change_recent(change = 0.03), # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
+            pricedrop2 = df_k200.priceaction.change_recent(change = 0.05) # 직전 상승 대비 -3%(전고점 아님) 떨어지면 진입
         )
 
         ref_values = dict(
